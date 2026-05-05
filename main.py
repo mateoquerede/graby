@@ -25,7 +25,7 @@ with sync_playwright() as p:
     for t in tasks:
 
         buscar_producto(page, t["query"])
-        agregar_producto(page, t["cantidad"])
+        agregar_producto(page, t["cantidad"], producto_pedido=t["query"])
 
     print("🛒 Todo agregado")
 
