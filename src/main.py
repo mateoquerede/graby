@@ -1,12 +1,24 @@
+"""
+Main entry point for the Coto Bot application.
+
+This script automates the process of shopping on Coto Digital:
+- Loads product list from lista.json
+- Plans search queries using AI
+- Logs into the website
+- Clears the cart
+- Searches and adds products to the cart
+- Navigates to the cart for manual checkout
+"""
+
 import json
 from playwright.sync_api import sync_playwright
-
 from planner import plan
-from shopper import buscar_producto, agregar_producto
+from search import buscar_producto
+from add_product import agregar_producto
 from login import login
 from cart import limpiar_carrito
 
-with open("lista.json") as f:
+with open("../lista.json") as f:
     productos = json.load(f)
 
 tasks = plan(productos)

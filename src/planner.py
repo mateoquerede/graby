@@ -1,3 +1,10 @@
+"""
+Planner module
+
+Uses Ollama AI to convert product names into optimized search queries
+for supermarket shopping, maintaining exact quantities.
+"""
+
 import ollama
 import json
 import re

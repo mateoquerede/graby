@@ -1,3 +1,10 @@
+"""
+Evaluator module
+
+Uses AI to evaluate and select the best product match from search results
+based on rules, blocked items, and pricing criteria.
+"""
+
 import json
 import re
 import ollama

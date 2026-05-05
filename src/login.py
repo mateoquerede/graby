@@ -1,10 +1,16 @@
+"""
+Login module
+
+Handles authentication to Coto Digital website using credentials from settings.json.
+"""
+
 import json
 import time
 
 
 def login(page):
 
-    settings = json.load(open("settings.json"))
+    settings = json.load(open("../settings.json"))
 
     print("🔐 Login...")
 

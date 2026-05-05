@@ -1,3 +1,9 @@
+"""
+Cart management module
+
+Provides functionality to clear the shopping cart on Coto Digital.
+"""
+
 def limpiar_carrito(page):
     print("🧹 Abriendo carrito...")
 
