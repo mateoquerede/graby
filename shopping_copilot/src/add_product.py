@@ -4,10 +4,10 @@ Add product module
 Handles adding products to the cart on Coto Digital website.
 """
 
-from evaluator import evaluar_producto_con_ia
-from config import BLOQUEADOS, RULES
-from search import ordenar_menor_precio
-from product_parser import extraer_candidatos
+from shopping_copilot.src.evaluator import evaluar_producto_con_ia
+from shopping_copilot.src.config import BLOQUEADOS, RULES
+from shopping_copilot.src.search import ordenar_menor_precio
+from shopping_copilot.src.product_parser import extraer_candidatos
 
 
 def click_plus_por_item_id(page, item_id, veces):

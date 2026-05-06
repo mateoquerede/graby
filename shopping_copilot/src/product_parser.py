@@ -8,7 +8,6 @@ from Coto Digital website.
 import json
 import re
 
-
 def obtener_card_desde_boton(btn):
     for nivel in range(1, 12):
         try:

@@ -4,14 +4,13 @@ Login module
 Handles authentication to Coto Digital website using credentials from settings.json.
 """
 
-import json
 import time
-
+from shared.shared_config import load_settings
 
 def login(page):
 
-    settings = json.load(open("../settings.json"))
-
+    settings = load_settings()
+    
     print("🔐 Login...")
 
     page.wait_for_load_state("domcontentloaded")
@@ -20,8 +19,8 @@ def login(page):
 
     page.wait_for_selector('input[type="text"]', timeout=20000)
 
-    page.fill('input[type="text"]', settings["email"])
-    page.fill('input[type="password"]', settings["password"])
+    page.fill('input[type="text"]', settings["coto"]["email"])
+    page.fill('input[type="password"]', settings["coto"]["password"])
 
     page.keyboard.press("Enter")
 

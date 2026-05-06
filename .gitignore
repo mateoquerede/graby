@@ -1,3 +1,29 @@
+# Python
 __pycache__/
+*.py[cod]
+*.pyo
+*.spec
+
+# Virtual envs
 venv/
-settings.json
+.venv/
+
+# Build
+build/
+
+# VSCode
+.vscode/
+
+# Shared secrets
+shared/settings.json
+
+# Runtime/generated files
+consumption_helper/consumption_state.json
+consumption.bat
+consumption_launcher.py
+shopping.bat
+shopping_launcher.py
+
+# OS
+.DS_Store
+Thumbs.db
