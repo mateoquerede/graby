@@ -1,4 +1,12 @@
 {
-  "email": "tu_email_o_usuario",
-  "password": "tu_contraseña"
+  "coto": {
+    "email": "tu_email_o_usuario",
+    "password": "tu_contrasena"
+  },
+  "grocy": {
+    "enabled": false,
+    "base_url": "http://localhost:9283",
+    "api_key": "tu_api_key",
+    "list_id": 1
+  }
 }

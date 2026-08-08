@@ -24,22 +24,25 @@ def load_tasks():
     grocy_cfg = settings.get("grocy", {})
 
     if grocy_cfg.get("enabled"):
-        client = GrocyClient(
-            base_url=grocy_cfg["base_url"],
-            api_key=grocy_cfg["api_key"]
-        )
+        try:
+            client = GrocyClient(
+                base_url=grocy_cfg["base_url"],
+                api_key=grocy_cfg["api_key"]
+            )
 
-        raw_tasks = client.build_tasks_from_shopping_list(
-            list_id=grocy_cfg.get("list_id")
-        )
+            raw_tasks = client.build_tasks_from_shopping_list(
+                list_id=grocy_cfg.get("list_id")
+            )
 
-        print(f"🧾 Raw tasks from Grocy: {len(raw_tasks)}")
+            print(f"🧾 Raw tasks from Grocy: {len(raw_tasks)}")
 
-        tasks = plan(raw_tasks)
+            tasks = plan(raw_tasks)
 
-        print(f"🧠 Products from Grocy: {len(tasks)}")
+            print(f"🧠 Products from Grocy: {len(tasks)}")
 
-        return tasks
+            return tasks
+        except Exception as e:
+            print(f"⚠️ Grocy unavailable ({e}), falling back to shopping_list.json")
 
     products = load_shopping_list()
     tasks = plan(products)

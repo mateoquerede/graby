@@ -11,8 +11,9 @@ venv/
 # Build
 build/
 
-# VSCode
+# Development
 .vscode/
+.github/
 
 # Shared secrets
 shared/settings.json

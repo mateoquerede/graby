@@ -15,9 +15,10 @@ An automated module to synchronize product consumption in Grocy using configurab
 
 ## Installation
 
-1. Install dependencies: `pip install -r ../shopping_copilot/src/requirements.txt`
-2. Configure Grocy credentials in `shared/settings.json`
-3. Define consumption rules in `shared/grocy/consumption_rules.json`
+1. From repository root, run `install.bat` (double click or terminal).
+2. Configure Grocy credentials in `shared/settings.json`.
+3. Define consumption rules in `shared/grocy/consumption_rules.json`.
+4. Run `consumption.bat` from repository root.
 
 ## Configuration
 

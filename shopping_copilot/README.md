@@ -24,10 +24,19 @@ An automated bot for shopping on Coto Digital using Playwright and Ollama.
 
 ## Installation
 
+1. Easiest: run `run.bat` from repository root. It installs dependencies if needed, then starts shopping.
+2. If `shared/settings.json` has no Coto credentials, `run.bat` asks for email and password in terminal and saves them automatically.
+3. Run `run.bat` again to execute the bot.
+
+Alternative:
+1. From repository root, run `install.bat` (double click or terminal).
+2. Run `shopping.bat` from repository root.
+
+Manual install (optional):
 1. Install dependencies: `pip install -r src/requirements.txt`
 2. Install Ollama and the llama3 model
-3. Copy `settings.example.json` to `settings.json` and configure your credentials
-4. Run: `python src/main.py`
+3. Configure `shared/settings.json`
+4. Run: `python -m shopping_copilot.src.main`
 
 ## How it works
 
