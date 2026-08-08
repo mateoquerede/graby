@@ -91,7 +91,18 @@ def main():
 
     with sync_playwright() as p:
         browser = p.firefox.launch(headless=False)
-        page = browser.new_page()
+        context = browser.new_context()
+
+        # Block heavy assets to make navigation and searches snappier.
+        context.route(
+            "**/*",
+            lambda route: route.abort()
+            if route.request.resource_type in {"image", "font", "media"}
+            else route.continue_(),
+        )
+
+        page = context.new_page()
+        page.set_default_timeout(12000)
 
         page.goto("https://www.cotodigital.com.ar")
 

@@ -38,6 +38,12 @@ Manual install (optional):
 3. Configure `shared/settings.json`
 4. Run: `python -m shopping_copilot.src.main`
 
+### Debug logs
+
+Set `"debug": true` in `shared/settings.json` to enable verbose internal logs.
+With `"debug": false`, the bot keeps visible only useful progress, warnings, errors,
+and the final product-selection reason.
+
 ## How it works
 
 The bot loads the shopping list, plans searches, logs in, clears the cart, searches and adds products automatically, and leaves the cart ready for manual checkout.

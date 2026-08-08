@@ -26,6 +26,23 @@ def load_settings():
     )
 
 
+SETTINGS = load_settings()
+
+
+def is_debug_enabled():
+    debug_value = SETTINGS.get("debug", False)
+
+    if isinstance(debug_value, dict):
+        return bool(debug_value.get("enabled", False))
+
+    return bool(debug_value)
+
+
+def debug_print(*args, **kwargs):
+    if is_debug_enabled():
+        print(*args, **kwargs)
+
+
 def load_shopping_list():
     return load_json(
         SHOPPING_LIST_PATH

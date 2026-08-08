@@ -8,6 +8,7 @@ for supermarket shopping, maintaining exact quantities.
 import json
 import re
 import ollama
+from shopping_copilot.src.config import debug_print
 
 
 def singularize_spanish_query(query):
@@ -150,8 +151,8 @@ PRODUCTS:
 
     raw = response["message"]["content"].strip()
 
-    print("\n🧠 Planner response:")
-    print(raw)
+    debug_print("\n🧠 Planner response:")
+    debug_print(raw)
 
     data = extract_json(raw)
     return validate_plan(data)
@@ -202,8 +203,8 @@ USER REQUEST:
 
     raw = response["message"]["content"].strip()
 
-    print("\n🧠 Shopping list generation response:")
-    print(raw)
+    debug_print("\n🧠 Shopping list generation response:")
+    debug_print(raw)
 
     data = extract_json(raw)
     return validate_plan(data)

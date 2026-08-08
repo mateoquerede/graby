@@ -7,6 +7,7 @@ from Coto Digital website.
 
 import json
 import re
+from shopping_copilot.src.config import debug_print
 
 def get_card_from_button(btn):
     for level in range(1, 12):
@@ -35,7 +36,7 @@ def get_add_buttons(page):
     for selector in selectors:
         loc = page.locator(selector)
         count = loc.count()
-        print(f"Selector {selector} -> {count}")
+        debug_print(f"Selector {selector} -> {count}")
 
         if count > 0:
             return loc
@@ -242,8 +243,8 @@ def extract_candidates(page, quantity):
                 "raw_text": text[:1200]
             }
 
-            print("\n------")
-            print(json.dumps(candidate, ensure_ascii=False, indent=2))
+            debug_print("\n------")
+            debug_print(json.dumps(candidate, ensure_ascii=False, indent=2))
 
             candidates.append(candidate)
 

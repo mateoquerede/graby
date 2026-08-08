@@ -5,48 +5,81 @@ Handles adding products to the cart on Coto Digital website.
 """
 
 from shopping_copilot.src.evaluator import evaluate_product_with_ai
-from shopping_copilot.src.config import BLOCKED, RULES
+from shopping_copilot.src.config import BLOCKED, RULES, debug_print
 from shopping_copilot.src.search import sort_by_lowest_price
 from shopping_copilot.src.product_parser import extract_candidates
 
 
 def click_plus_by_item_id(page, item_id, times):
     for _ in range(times):
-        result = page.evaluate(
-            """
-            (itemId) => {
-                const card = document.querySelector(`[data-cnstrc-item-id="${itemId}"]`);
-                if (!card) return { ok:false, reason:"card_not_found" };
+        retries = 0
+        while True:
+            result = page.evaluate(
+                """
+                (itemId) => {
+                    const card = document.querySelector(`[data-cnstrc-item-id="${itemId}"]`);
+                    if (!card) return { ok:false, reason:"card_not_found" };
 
-                const spinners = [...card.querySelectorAll(".input-spinner")];
-                if (!spinners.length) return { ok:false, reason:"spinner_not_found" };
+                    const spinners = [...card.querySelectorAll(".input-spinner")];
+                    if (!spinners.length) return { ok:false, reason:"spinner_not_found" };
 
-                const spinner =
-                    spinners.find(s => getComputedStyle(s).display !== "none") ||
-                    spinners[0];
+                    const spinner =
+                        spinners.find(s => getComputedStyle(s).display !== "none") ||
+                        spinners[0];
 
-                const buttons = spinner.querySelectorAll("button");
-                if (buttons.length < 2) return { ok:false, reason:"plus_not_found" };
+                    const buttons = spinner.querySelectorAll("button");
+                    if (buttons.length < 2) return { ok:false, reason:"plus_not_found" };
 
-                buttons[1].click();
+                    const input = spinner.querySelector("input");
+                    const before = input ? Number(input.value) : null;
 
-                const input = spinner.querySelector("input");
+                    buttons[1].click();
 
-                return {
-                    ok: true,
-                    value: input ? input.value : null
-                };
-            }
-            """,
-            item_id,
-        )
+                    const after = input ? input.value : null;
 
-        print("➕ result:", result)
+                    return {
+                        ok: true,
+                        before,
+                        after
+                    };
+                }
+                """,
+                item_id,
+            )
 
-        if not result.get("ok"):
+            if result.get("ok"):
+                break
+
+            if result.get("reason") in {"card_not_found", "spinner_not_found", "plus_not_found"} and retries < 12:
+                retries += 1
+                page.wait_for_timeout(150)
+                continue
+
             raise Exception(f"Unable to click +: {result}")
 
-        page.wait_for_timeout(900)
+        debug_print("➕ result:", result)
+
+        before = result.get("before")
+        if isinstance(before, (int, float)):
+            expected = int(before) + 1
+            page.wait_for_function(
+                """
+                ([itemId, expectedValue]) => {
+                    const card = document.querySelector(`[data-cnstrc-item-id="${itemId}"]`);
+                    if (!card) return false;
+                    const spinner =
+                        [...card.querySelectorAll('.input-spinner')].find(s => getComputedStyle(s).display !== 'none') ||
+                        card.querySelector('.input-spinner');
+                    if (!spinner) return false;
+                    const input = spinner.querySelector('input');
+                    return input && Number(input.value) === expectedValue;
+                }
+                """,
+                arg=[item_id, expected],
+                timeout=3000,
+            )
+        else:
+            page.wait_for_timeout(250)
 
 
 def add_by_plu(page, selected_plu, quantity):
@@ -60,8 +93,8 @@ def add_by_plu(page, selected_plu, quantity):
 
     item_id = card.get_attribute("data-cnstrc-item-id")
 
-    print(f"PLU selector: {selected_plu}")
-    print(f"Resolved item_id: {item_id}")
+    debug_print(f"PLU selector: {selected_plu}")
+    debug_print(f"Resolved item_id: {item_id}")
 
     btn = card.locator("button:has-text('Agregar')").first
     btn.wait_for(state="visible", timeout=15000)
@@ -69,8 +102,6 @@ def add_by_plu(page, selected_plu, quantity):
     btn.click()
 
     print(f"✅ Added product PLU {selected_plu}")
-
-    page.wait_for_timeout(3000)
 
     if quantity <= 1:
         return
@@ -82,6 +113,8 @@ def add_by_plu(page, selected_plu, quantity):
 
 def add_product(page, quantity, requested_product=None):
     print(f"🛒 Adding {quantity} units")
+
+    sort_by_lowest_price(page)
 
     candidates = extract_candidates(page, quantity)
 
@@ -97,10 +130,6 @@ def add_product(page, quantity, requested_product=None):
 
         return
 
-    sort_by_lowest_price(page)
-
-    candidates = extract_candidates(page, quantity)
-
     if not candidates:
         raise Exception("Unable to extract candidates after sorting")
 
@@ -114,8 +143,10 @@ def add_product(page, quantity, requested_product=None):
 
     selected_plu = decision.get("selected_plu")
 
-    print("🧠 Selected PLU:", selected_plu)
-    print("🧠 Reason:", decision.get("reason"))
+    print(
+        f"🧠 Selected product: PLU {selected_plu}"
+        f" | reason: {decision.get('reason')}"
+    )
 
     if not selected_plu:
         raise Exception("AI did not select a valid product")

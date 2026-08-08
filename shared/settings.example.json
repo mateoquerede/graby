@@ -8,5 +8,6 @@
     "base_url": "http://localhost:9283",
     "api_key": "tu_api_key",
     "list_id": 1
-  }
+  },
+  "debug": false
 }

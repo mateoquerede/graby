@@ -9,7 +9,6 @@ def clear_cart(page):
 
     page.goto("https://www.cotodigital.com.ar/sitios/cdigi/carrito")
     page.wait_for_load_state("domcontentloaded")
-    page.wait_for_timeout(3000)
 
     if page.locator("text=No tiene ningún artículo").count() > 0:
         print("✅ Cart is already empty")
@@ -22,11 +21,12 @@ def clear_cart(page):
         return
 
     empty_button.click()
-    page.wait_for_timeout(1500)
 
     confirm = page.locator("text=/Si, vaciar|Sí, vaciar/i").first
     confirm.wait_for(state="visible", timeout=10000)
     confirm.click()
 
-    page.wait_for_timeout(2500)
+    page.locator("text=No tiene ningún artículo").first.wait_for(
+        state="visible", timeout=10000
+    )
     print("✅ Cart emptied")

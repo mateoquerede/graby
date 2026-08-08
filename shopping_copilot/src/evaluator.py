@@ -8,6 +8,7 @@ based on rules, blocked items, and pricing criteria.
 import json
 import re
 import ollama
+from shopping_copilot.src.config import debug_print
 
 
 def extract_json_object(raw):
@@ -112,8 +113,8 @@ Exact format:
 
     raw = r["message"]["content"]
 
-    print("\n🧠 AI evaluation:")
-    print(raw)
+    debug_print("\n🧠 AI evaluation:")
+    debug_print(raw)
 
     decision = extract_json_object(raw)
 
