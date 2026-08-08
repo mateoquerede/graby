@@ -5,6 +5,7 @@ Handles authentication to Coto Digital website using credentials from settings.j
 """
 
 import time
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from shared.shared_config import load_settings
 
 def login(page):
@@ -24,6 +25,14 @@ def login(page):
 
     page.keyboard.press("Enter")
 
-    time.sleep(3)
+    error_message = "Alguno de los datos ingresados no es correcto"
+    error_banner = page.get_by_text(error_message, exact=False)
+
+    try:
+        error_banner.wait_for(state="visible", timeout=5000)
+    except PlaywrightTimeoutError:
+        time.sleep(3)
+    else:
+        raise ValueError(f"Credenciales Coto inválidas: {error_message}")
 
     print("✅ Logged in")

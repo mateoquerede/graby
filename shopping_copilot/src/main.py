@@ -11,12 +11,16 @@ This script automates the process of shopping on Coto Digital:
 """
 
 from playwright.sync_api import sync_playwright
-from shopping_copilot.src.planner import plan
+from shopping_copilot.src.planner import plan, generate_shopping_list_from_prompt
 from shopping_copilot.src.search import search_product
 from shopping_copilot.src.add_product import add_product
 from shopping_copilot.src.login import login
 from shopping_copilot.src.cart import clear_cart
-from shopping_copilot.src.config import load_shopping_list, load_settings
+from shopping_copilot.src.config import (
+    load_shopping_list,
+    load_settings,
+    SHOPPING_LIST_PATH,
+)
 from shopping_copilot.src.grocy_client import GrocyClient
 
 def load_tasks():
@@ -44,7 +48,13 @@ def load_tasks():
         except Exception as e:
             print(f"⚠️ Grocy unavailable ({e}), falling back to shopping_list.json")
 
+    if not SHOPPING_LIST_PATH.exists():
+        raise FileNotFoundError(
+            "shopping_list.json not found. Use prompt in terminal or create shopping_copilot/shopping_list.json"
+        )
+
     products = load_shopping_list()
+
     tasks = plan(products)
 
     print(f"🧾 Products from shopping_list.json: {len(tasks)}")
@@ -52,8 +62,28 @@ def load_tasks():
     return tasks
 
 
+def load_tasks_from_prompt():
+    user_prompt = input(
+        "Que queres comprar? "
+    ).strip()
+
+    if not user_prompt:
+        raise ValueError("Shopping prompt cannot be empty")
+
+    products = generate_shopping_list_from_prompt(user_prompt)
+    tasks = plan(products)
+
+    print(f"🧾 Products from prompt: {len(tasks)}")
+
+    return tasks
+
+
 def main():
-    tasks = load_tasks()
+    try:
+        tasks = load_tasks()
+    except FileNotFoundError:
+        print("⚠️ No Grocy list and shopping_list.json not found. Switching to prompt mode.")
+        tasks = load_tasks_from_prompt()
 
     if not tasks:
         print("No products to buy")
@@ -65,7 +95,12 @@ def main():
 
         page.goto("https://www.cotodigital.com.ar")
 
-        login(page)
+        try:
+            login(page)
+        except ValueError as e:
+            print(f"❌ {e}")
+            return
+
         clear_cart(page)
 
         for t in tasks:

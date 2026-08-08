@@ -58,36 +58,37 @@ def evaluate_product_with_ai(requested_product, quantity, candidates, blocked, r
         }
 
     prompt = f"""
-Respond ONLY with valid JSON. Nothing before. Nothing after.
+Responde SOLO con JSON valido. Nada antes. Nada despues.
 
-Requested product: {requested_product}
-Required quantity: {quantity}
+Producto pedido: {requested_product}
+Cantidad requerida: {quantity}
 
-Blocked PLUs, DO NOT choose them:
+PLUs bloqueados, NO los elijas:
 {json.dumps(list(blocked_plu), ensure_ascii=False)}
 
-Rules:
+Reglas:
 {json.dumps(rules, ensure_ascii=False, indent=2)}
 
-Allowed candidates, already sorted by normalized price:
+Candidatos permitidos, ya ordenados por precio normalizado:
 {json.dumps(filtered_candidates, ensure_ascii=False, indent=2)}
 
-Mandatory criteria:
-- selected_plu must be one of the allowed candidates.
-- The primary price metric is effective_price_per_normalized_unit.
-- Do NOT use price as the main criterion.
-- price is only the package price and cannot compare different sizes.
-- A 200ml item can win ONLY if its normalized unit price is lower than 1L options.
-- If the 200ml price per liter is higher than a 1L option, DO NOT choose it.
-- Consider promotions only if they apply to the required quantity.
-- Prioritize semantic equivalence with the requested product.
-- Avoid unwanted variants: chocolate, flavored, lactose-free, infant.
-- If no candidate fits, selected_plu must be null.
+Criterios obligatorios:
+- selected_plu debe ser uno de los candidatos permitidos.
+- Metrica principal de precio: effective_price_per_normalized_unit.
+- NO uses price como criterio principal.
+- price es solo precio de paquete y no compara tamanos distintos.
+- Item 200ml gana SOLO si precio unitario normalizado es menor que opcion 1L.
+- Si precio por litro de 200ml es mayor que opcion 1L, NO elegir.
+- Considera promociones solo si aplican para cantidad requerida.
+- Prioriza equivalencia semantica con producto pedido.
+- Evita variantes no deseadas: chocolate, saborizado, sin lactosa, infantil.
+- Si no hay candidato valido, selected_plu debe ser null.
+- reason debe estar en español argentino.
 
 Exact format:
 {{
   "selected_plu": "string|null",
-  "reason": "short string"
+    "reason": "texto corto en español argentino"
 }}
 """
 
@@ -96,7 +97,7 @@ Exact format:
         messages=[
             {
                 "role": "system",
-                "content": "Respond only with valid JSON. Do not explain. Do not use markdown."
+                "content": "Responde solo JSON valido. No expliques. No uses markdown. reason siempre en español argentino."
             },
             {
                 "role": "user",

@@ -9,6 +9,35 @@ import json
 import re
 import ollama
 
+
+def singularize_spanish_query(query):
+    """
+    Best-effort singular normalization for product queries.
+    Keeps phrase structure, singularizes simple plural tokens.
+    """
+    tokens = re.split(r"(\W+)", query.strip())
+    normalized = []
+
+    for token in tokens:
+        if not token or re.fullmatch(r"\W+", token):
+            normalized.append(token)
+            continue
+
+        lower = token.lower()
+
+        if lower.endswith("ces") and len(lower) > 4:
+            # luces -> luz, nueces -> nuez
+            normalized.append(token[:-3] + "z")
+            continue
+
+        if lower.endswith(("as", "es", "is", "os", "us")) and len(lower) > 3:
+            normalized.append(token[:-1])
+            continue
+
+        normalized.append(token)
+
+    return "".join(normalized).strip()
+
 def extract_json(text):
     """
     Extract the first valid JSON array from the model response.
@@ -51,8 +80,12 @@ def validate_plan(data):
         if quantity is None:
             raise ValueError(f"Missing quantity in item: {item}")
 
+        normalized_query = singularize_spanish_query(
+            str(query).strip()
+        )
+
         validated.append({
-            "query": str(query).strip(),
+            "query": normalized_query,
             "quantity": int(float(quantity))
         })
 
@@ -60,23 +93,37 @@ def validate_plan(data):
 
 
 def plan(products):
+    if not products:
+        return []
+
+    # If tasks are already in normalized shape, avoid a second AI pass.
+    if isinstance(products, list) and all(
+        isinstance(item, dict)
+        and "query" in item
+        and "quantity" in item
+        for item in products
+    ):
+        return validate_plan(products)
+
     prompt = f"""
-Convert each product into a supermarket search.
+Converti cada producto en una busqueda de supermercado.
 
 REQUIRED RULES:
-- Return ONLY valid JSON.
-- Do not write explanations.
-- Do not use markdown.
-- Do not use ```json.
-- Do not add text before or after.
-- Keep the exact quantity.
-- Do not change numbers.
-- Do not add products.
-- Do not remove products.
+- Responde SOLAMENTE JSON valido.
+- No escribas explicaciones.
+- No uses markdown.
+- No uses ```json.
+- No agregues texto antes ni despues.
+- Mantené cantidad exacta.
+- No cambies numeros.
+- No agregues productos.
+- No elimines productos.
+- query siempre en español.
+- query siempre en singular.
 
 EXACT FORMAT:
 [
-  {{"query":"whole milk","quantity":2}}
+    {{"query":"leche entera","quantity":2}}
 ]
 
 PRODUCTS:
@@ -88,7 +135,7 @@ PRODUCTS:
         messages=[
             {
                 "role": "system",
-                "content": "You are a strict JSON converter. Respond only with valid JSON, without additional text."
+                "content": "Sos convertidor estricto de JSON. Responde solo JSON valido, sin texto extra. Responde siempre en español y usa query en singular."
             },
             {
                 "role": "user",
@@ -104,6 +151,58 @@ PRODUCTS:
     raw = response["message"]["content"].strip()
 
     print("\n🧠 Planner response:")
+    print(raw)
+
+    data = extract_json(raw)
+    return validate_plan(data)
+
+
+def generate_shopping_list_from_prompt(user_prompt):
+    prompt = f"""
+Converti pedido de compra de usuario en lista JSON.
+
+REQUIRED RULES:
+- Responde SOLAMENTE JSON valido.
+- No escribas explicaciones.
+- No uses markdown.
+- No agregues texto antes ni despues.
+- Mantené cantidades como enteros.
+- Si cantidad no es explicita, usa 1.
+- Cada item debe tener query y quantity.
+- query siempre en español.
+- query siempre en singular.
+
+EXACT FORMAT:
+[
+    {{"query":"leche","quantity":2}},
+    {{"query":"shampoo","quantity":1}}
+]
+
+USER REQUEST:
+{user_prompt}
+"""
+
+    response = ollama.chat(
+        model="llama3",
+        messages=[
+            {
+                "role": "system",
+                "content": "Sos generador estricto de JSON para listas de compra. Responde solo JSON valido. Responde siempre en español y usa query en singular."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        options={
+            "temperature": 0,
+            "top_p": 0.1
+        }
+    )
+
+    raw = response["message"]["content"].strip()
+
+    print("\n🧠 Shopping list generation response:")
     print(raw)
 
     data = extract_json(raw)
