@@ -1,35 +1,34 @@
 # CotoBot
 
-Un bot automatizado para hacer compras en Coto Digital usando Playwright y Ollama.
+An automated bot for shopping on Coto Digital using Playwright and Ollama.
 
-## Estructura del Proyecto
+## Project Structure
 
-- `src/`: Código fuente del proyecto
-  - `main.py`: Punto de entrada principal
-  - `planner.py`: Planifica búsquedas usando IA
-  - `login.py`: Maneja el login al sitio
-  - `cart.py`: Gestiona el carrito de compras
-  - `search.py`: Funciones de búsqueda de productos
-  - `product_parser.py`: Parsing de información de productos
-  - `add_product.py`: Agrega productos al carrito
-  - `evaluator.py`: Evalúa productos usando IA
-  - `config.py`: Carga configuraciones desde JSON
-  - `requirements.txt`: Dependencias Python
-  - `run.bat`: Script para ejecutar en Windows
+- `src/`: Project source code
+  - `main.py`: Main entry point
+  - `planner.py`: Plans search queries using AI
+  - `login.py`: Handles login to the site
+  - `cart.py`: Manages the shopping cart
+  - `search.py`: Product search functions
+  - `product_parser.py`: Parses product details and pricing
+  - `add_product.py`: Adds products to the cart
+  - `evaluator.py`: Evaluates products with AI
+  - `config.py`: Loads JSON configuration
+  - `requirements.txt`: Python dependencies
 
-- Archivos de configuración (JSON):
-  - `lista.json`: Lista de productos a comprar
-  - `settings.json`: Credenciales de login (copiar de `settings.example.json`)
-  - `rules.json`: Reglas para la evaluación de productos
-  - `bloqueados.json`: PLUs bloqueados
+- Configuration files (JSON):
+  - `shopping_list.json`: Shopping list of products
+  - `settings.json`: Login credentials (copy from `settings.example.json`)
+  - `rules.json`: Rules for product evaluation
+  - `blocked.json`: Blocked PLUs
 
-## Instalación
+## Installation
 
-1. Instalar dependencias: `pip install -r src/requirements.txt`
-2. Instalar Ollama y el modelo llama3
-3. Copiar `settings.example.json` a `settings.json` y configurar con tus credenciales
-4. Ejecutar: `python src/main.py` o usar run.bat
+1. Install dependencies: `pip install -r src/requirements.txt`
+2. Install Ollama and the llama3 model
+3. Copy `settings.example.json` to `settings.json` and configure your credentials
+4. Run: `python src/main.py`
 
-## Funcionamiento
+## How it works
 
-El bot carga la lista de productos, planifica búsquedas, se loguea, limpia el carrito, busca y agrega productos automáticamente, y deja el carrito listo para pago manual.
+The bot loads the shopping list, plans searches, logs in, clears the cart, searches and adds products automatically, and leaves the cart ready for manual checkout.

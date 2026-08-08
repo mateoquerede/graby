@@ -4,29 +4,29 @@ Cart management module
 Provides functionality to clear the shopping cart on Coto Digital.
 """
 
-def limpiar_carrito(page):
-    print("🧹 Abriendo carrito...")
+def clear_cart(page):
+    print("🧹 Opening cart...")
 
     page.goto("https://www.cotodigital.com.ar/sitios/cdigi/carrito")
     page.wait_for_load_state("domcontentloaded")
     page.wait_for_timeout(3000)
 
     if page.locator("text=No tiene ningún artículo").count() > 0:
-        print("✅ Carrito ya vacío")
+        print("✅ Cart is already empty")
         return
 
-    vaciar = page.locator("text=/Vaciar Carro/i").first
+    empty_button = page.locator("text=/Vaciar Carro/i").first
 
-    if vaciar.count() == 0:
-        print("⚠️ No encontré Vaciar Carro")
+    if empty_button.count() == 0:
+        print("⚠️ Could not find Empty Cart")
         return
 
-    vaciar.click()
+    empty_button.click()
     page.wait_for_timeout(1500)
 
-    confirmar = page.locator("text=/Si, vaciar|Sí, vaciar/i").first
-    confirmar.wait_for(state="visible", timeout=10000)
-    confirmar.click()
+    confirm = page.locator("text=/Si, vaciar|Sí, vaciar/i").first
+    confirm.wait_for(state="visible", timeout=10000)
+    confirm.click()
 
     page.wait_for_timeout(2500)
-    print("✅ Carrito vaciado")
+    print("✅ Cart emptied")

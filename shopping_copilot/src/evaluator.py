@@ -10,7 +10,7 @@ import re
 import ollama
 
 
-def extraer_json_objeto(raw):
+def extract_json_object(raw):
     matches = re.finditer(r"\{.*?\}", raw, re.DOTALL)
 
     for m in matches:
@@ -24,79 +24,79 @@ def extraer_json_objeto(raw):
 
     return {
         "selected_plu": None,
-        "reason": "La IA no devolvió JSON válido con selected_plu"
+        "reason": "AI did not return valid JSON with selected_plu"
     }
 
 
-def evaluar_producto_con_ia(producto_pedido, cantidad, candidatos, bloqueados, rules):
-    modelo = rules.get("modelo_ollama", "llama3")
+def evaluate_product_with_ai(requested_product, quantity, candidates, blocked, rules):
+    model_name = rules.get("ollama_model", "llama3")
 
-    bloqueados_plu = set(str(x) for x in bloqueados.get("plu", []))
+    blocked_plu = set(str(x) for x in blocked.get("plu", []))
 
-    candidatos_filtrados = [
-        c for c in candidatos
-        if str(c.get("plu")) not in bloqueados_plu
+    filtered_candidates = [
+        c for c in candidates
+        if str(c.get("plu")) not in blocked_plu
     ]
 
-    candidatos_filtrados = [
-        c for c in candidatos_filtrados
+    filtered_candidates = [
+        c for c in filtered_candidates
         if c.get("effective_price_per_normalized_unit") is not None
     ]
 
-    candidatos_filtrados = sorted(
-        candidatos_filtrados,
+    filtered_candidates = sorted(
+        filtered_candidates,
         key=lambda c: c.get("effective_price_per_normalized_unit") or 999999999
     )
 
-    for idx, c in enumerate(candidatos_filtrados):
+    for idx, c in enumerate(filtered_candidates):
         c["rank_by_normalized_price"] = idx + 1
 
-    if not candidatos_filtrados:
+    if not filtered_candidates:
         return {
             "selected_plu": None,
-            "reason": "No hay candidatos válidos después de filtros duros"
+            "reason": "No valid candidates after hard filters"
         }
 
     prompt = f"""
-Respondé SOLO un JSON válido. Nada antes. Nada después.
+Respond ONLY with valid JSON. Nothing before. Nothing after.
 
-Producto pedido: {producto_pedido}
-Cantidad requerida: {cantidad}
+Requested product: {requested_product}
+Required quantity: {quantity}
 
-PLU bloqueados, NO PODÉS elegirlos:
-{json.dumps(list(bloqueados_plu), ensure_ascii=False)}
+Blocked PLUs, DO NOT choose them:
+{json.dumps(list(blocked_plu), ensure_ascii=False)}
 
-Reglas:
+Rules:
 {json.dumps(rules, ensure_ascii=False, indent=2)}
 
-Candidatos permitidos, ya ordenados por precio normalizado:
-{json.dumps(candidatos_filtrados, ensure_ascii=False, indent=2)}
+Allowed candidates, already sorted by normalized price:
+{json.dumps(filtered_candidates, ensure_ascii=False, indent=2)}
 
-Criterios obligatorios:
-- selected_plu debe ser uno de los candidatos permitidos.
-- El criterio principal de precio es effective_price_per_normalized_unit.
-- NO usar price como criterio principal.
-- price es solo el precio del envase, no sirve para comparar tamaños distintos.
-- Un producto de 200ml puede ganar SOLO si effective_price_per_normalized_unit es menor que las opciones de 1L.
-- Si el producto de 200ml tiene mayor precio por litro que uno de 1L, NO elegirlo.
-- Considerar promociones solo si aplican a la cantidad requerida.
-- Priorizar equivalencia semántica con el producto pedido.
-- Evitar variantes no pedidas: chocolatada, saborizada, sin lactosa, deslactosada, infantil.
-- Si ningún candidato sirve, selected_plu debe ser null.
+Mandatory criteria:
+- selected_plu must be one of the allowed candidates.
+- The primary price metric is effective_price_per_normalized_unit.
+- Do NOT use price as the main criterion.
+- price is only the package price and cannot compare different sizes.
+- A 200ml item can win ONLY if its normalized unit price is lower than 1L options.
+- If the 200ml price per liter is higher than a 1L option, DO NOT choose it.
+- Consider promotions only if they apply to the required quantity.
+- Prioritize semantic equivalence with the requested product.
+- Avoid unwanted variants: chocolate, flavored, lactose-free, infant.
+- If no candidate fits, selected_plu must be null.
 
-Formato exacto:
+Exact format:
 {{
   "selected_plu": "string|null",
-  "reason": "string corto"
+  "reason": "short string"
 }}
 """
 
     r = ollama.chat(
-        model=modelo,
+        model=model_name,
         messages=[
             {
                 "role": "system",
-                "content": "Respondé únicamente JSON válido. No expliques. No uses markdown."
+                "content": "Respond only with valid JSON. Do not explain. Do not use markdown."
             },
             {
                 "role": "user",
@@ -111,30 +111,30 @@ Formato exacto:
 
     raw = r["message"]["content"]
 
-    print("\n🧠 Evaluación IA:")
+    print("\n🧠 AI evaluation:")
     print(raw)
 
-    decision = extraer_json_objeto(raw)
+    decision = extract_json_object(raw)
 
     selected = decision.get("selected_plu")
 
     if selected is not None:
         selected = str(selected)
 
-    validos = set(str(c["plu"]) for c in candidatos_filtrados)
+    valid_values = set(str(c["plu"]) for c in filtered_candidates)
 
-    if selected not in validos:
+    if selected not in valid_values:
         return {
             "selected_plu": None,
-            "reason": f"La IA eligió un PLU inválido o bloqueado: {selected}"
+            "reason": f"AI selected an invalid or blocked PLU: {selected}"
         }
 
     selected_candidate = next(
-        (c for c in candidatos_filtrados if str(c["plu"]) == selected),
+        (c for c in filtered_candidates if str(c["plu"]) == selected),
         None
     )
 
-    best_candidate = candidatos_filtrados[0]
+    best_candidate = filtered_candidates[0]
 
     if selected_candidate and best_candidate:
         selected_ppu = selected_candidate.get("effective_price_per_normalized_unit")
@@ -145,9 +145,9 @@ Formato exacto:
                 return {
                     "selected_plu": str(best_candidate["plu"]),
                     "reason": (
-                        f"Override automático: la IA eligió PLU {selected}, "
-                        f"pero su precio normalizado {selected_ppu} es >10% peor "
-                        f"que {best_candidate['plu']} con {best_ppu}"
+                        f"Automatic override: AI selected PLU {selected}, "
+                        f"but its normalized price {selected_ppu} is >10% worse "
+                        f"than {best_candidate['plu']} with {best_ppu}"
                     )
                 }
 

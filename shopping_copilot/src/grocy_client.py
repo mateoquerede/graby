@@ -61,7 +61,7 @@ class GrocyClient:
                     )
 
                 except Exception as e:
-                    print(f"⚠️ No pude leer producto Grocy {product_id}: {e}")
+                    print(f"⚠️ Could not read Grocy product {product_id}: {e}")
 
             if not query:
                 query = note
@@ -70,16 +70,16 @@ class GrocyClient:
                 continue
 
             try:
-                cantidad = int(float(amount))
+                quantity = int(float(amount))
             except Exception:
-                cantidad = 1
+                quantity = 1
 
             tasks.append({
-                "nombre": query,
-                "cantidad": max(cantidad, 1),
+                "name": query,
+                "quantity": max(quantity, 1),
 
-                # hints semánticos
-                "categoria": category,
+                # semantic hints
+                "category": category,
                 "query_hint": query,
 
                 # metadata

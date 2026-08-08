@@ -25,14 +25,14 @@ def load_settings():
     )
 
 
-def load_lista():
+def load_shopping_list():
     return load_json(
-        PROJECT_DIR / "lista.json"
+        PROJECT_DIR / "shopping_list.json"
     )
 
 
-BLOQUEADOS = load_json(
-    PROJECT_DIR / "bloqueados.json"
+BLOCKED = load_json(
+    PROJECT_DIR / "blocked.json"
 )
 
 RULES = load_json(

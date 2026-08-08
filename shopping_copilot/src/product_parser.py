@@ -8,24 +8,23 @@ from Coto Digital website.
 import json
 import re
 
-def obtener_card_desde_boton(btn):
-    for nivel in range(1, 12):
+def get_card_from_button(btn):
+    for level in range(1, 12):
         try:
-            contenedor = btn.locator(f"xpath=ancestor::*[{nivel}]")
-            item_id = contenedor.get_attribute("data-cnstrc-item-id", timeout=1000)
+            container = btn.locator(f"xpath=ancestor::*[{level}]")
+            item_id = container.get_attribute("data-cnstrc-item-id", timeout=1000)
 
             if item_id:
                 match = re.search(r"prod0*([0-9]+)", item_id)
                 if match:
-                    return contenedor, match.group(1), item_id
-
+                    return container, match.group(1), item_id
         except Exception:
             pass
 
     return None, None, None
 
 
-def obtener_botones_agregar(page):
+def get_add_buttons(page):
     selectors = [
         "button:has-text('Agregar')",
         "a:has-text('Agregar')",
@@ -44,7 +43,7 @@ def obtener_botones_agregar(page):
     return None
 
 
-def parse_precio_argentino(s):
+def parse_argentinian_price(s):
     if not s:
         return None
 
@@ -66,10 +65,10 @@ def parse_precio_argentino(s):
 
 
 def parse_float_price(value):
-    return parse_precio_argentino(value)
+    return parse_argentinian_price(value)
 
 
-def parse_precio_normalizado_coto(texto):
+def parse_coto_normalized_price(text):
     patterns = [
         r"Precio por\s+1\s+Litro:\s*\$ ?([\d\.\,]+)",
         r"Precio por\s+1\s+L:\s*\$ ?([\d\.\,]+)",
@@ -80,15 +79,15 @@ def parse_precio_normalizado_coto(texto):
     ]
 
     for pattern in patterns:
-        m = re.search(pattern, texto, re.IGNORECASE)
+        m = re.search(pattern, text, re.IGNORECASE)
         if m:
-            return parse_precio_argentino(m.group(1))
+            return parse_argentinian_price(m.group(1))
 
     return None
 
 
-def parse_unidad(nombre, texto):
-    raw = f"{nombre} {texto}".lower()
+def parse_unit(name, text):
+    raw = f"{name} {text}".lower()
 
     m = re.search(r"(\d+(?:[\.,]\d+)?)\s*(l|lt|litro|litros)\b", raw)
     if m:
@@ -124,11 +123,11 @@ def parse_unidad(nombre, texto):
     }
 
 
-def extraer_promos(texto):
+def extract_promos(text):
     promos = []
-    t = texto.upper()
+    t = text.upper()
 
-    posibles = [
+    possible_promos = [
         "50% 2DA",
         "70% 2DA",
         "80% 2DA",
@@ -138,117 +137,117 @@ def extraer_promos(texto):
         "3X2"
     ]
 
-    for p in posibles:
-        if p in t:
-            promos.append(p)
+    for promo in possible_promos:
+        if promo in t:
+            promos.append(promo)
 
     return promos
 
 
-def calcular_precio_efectivo(precio_unitario, cantidad, promos):
-    if precio_unitario is None:
+def calculate_effective_price(unit_price, quantity, promos):
+    if unit_price is None:
         return None
 
-    total = precio_unitario * cantidad
+    total = unit_price * quantity
     promo_text = " ".join(promos).upper()
 
     if "2X1" in promo_text:
-        pagas = (cantidad + 1) // 2
-        return pagas * precio_unitario
+        paid = (quantity + 1) // 2
+        return paid * unit_price
 
     if "3X2" in promo_text:
-        grupos = cantidad // 3
-        resto = cantidad % 3
-        return (grupos * 2 + resto) * precio_unitario
+        groups = quantity // 3
+        remainder = quantity % 3
+        return (groups * 2 + remainder) * unit_price
 
     if "50% 2DA" in promo_text:
-        pares = cantidad // 2
-        resto = cantidad % 2
-        return pares * (precio_unitario * 1.5) + resto * precio_unitario
+        pairs = quantity // 2
+        remainder = quantity % 2
+        return pairs * (unit_price * 1.5) + remainder * unit_price
 
     if "70% 2DA" in promo_text:
-        pares = cantidad // 2
-        resto = cantidad % 2
-        return pares * (precio_unitario * 1.3) + resto * precio_unitario
+        pairs = quantity // 2
+        remainder = quantity % 2
+        return pairs * (unit_price * 1.3) + remainder * unit_price
 
     if "80% 2DA" in promo_text:
-        pares = cantidad // 2
-        resto = cantidad % 2
-        return pares * (precio_unitario * 1.2) + resto * precio_unitario
+        pairs = quantity // 2
+        remainder = quantity % 2
+        return pairs * (unit_price * 1.2) + remainder * unit_price
 
     return total
 
 
-def extraer_candidatos(page, cantidad):
-    productos = obtener_botones_agregar(page)
+def extract_candidates(page, quantity):
+    products = get_add_buttons(page)
 
-    if productos is None:
-        page.screenshot(path="debug_sin_agregar.png", full_page=True)
-        raise Exception("No encontré botones Agregar")
+    if products is None:
+        page.screenshot(path="debug_no_add_buttons.png", full_page=True)
+        raise Exception("Could not find Add buttons")
 
-    total = productos.count()
-    print("📦 Productos encontrados:", total)
+    total = products.count()
+    print("📦 Products found:", total)
 
-    candidatos = []
+    candidates = []
 
     for i in range(total):
-        btn = productos.nth(i)
+        btn = products.nth(i)
 
         try:
-            card, plu, item_id = obtener_card_desde_boton(btn)
+            card, plu, item_id = get_card_from_button(btn)
 
             if not card or not plu:
-                print("⚠️ Producto sin PLU detectable")
+                print("⚠️ Product without detectable PLU")
                 continue
 
-            texto = card.inner_text(timeout=2000)
+            text = card.inner_text(timeout=2000)
 
             item_name = card.get_attribute("data-cnstrc-item-name") or ""
             item_price = parse_float_price(
                 card.get_attribute("data-cnstrc-item-price")
             )
 
-            unidad = parse_unidad(item_name, texto)
-            promos = extraer_promos(texto)
+            unit = parse_unit(item_name, text)
+            promos = extract_promos(text)
 
-            precio_normalizado_coto = parse_precio_normalizado_coto(texto)
+            coto_normalized_price = parse_coto_normalized_price(text)
 
-            precio_efectivo_total = calcular_precio_efectivo(
+            effective_total_price = calculate_effective_price(
                 item_price,
-                cantidad,
+                quantity,
                 promos
             )
 
-            if precio_normalizado_coto is not None:
-                precio_efectivo_unidad_normalizada = precio_normalizado_coto
-            elif precio_efectivo_total is not None and unidad["amount"] > 0:
-                precio_efectivo_unidad_normalizada = (
-                    precio_efectivo_total / cantidad / unidad["amount"]
+            if coto_normalized_price is not None:
+                effective_normalized_unit_price = coto_normalized_price
+            elif effective_total_price is not None and unit["amount"] > 0:
+                effective_normalized_unit_price = (
+                    effective_total_price / quantity / unit["amount"]
                 )
             else:
-                precio_efectivo_unidad_normalizada = None
+                effective_normalized_unit_price = None
 
-            candidato = {
+            candidate = {
                 "index": i,
                 "plu": plu,
                 "item_id": item_id,
                 "name": item_name,
                 "price": item_price,
-                "unit_amount": unidad["amount"],
-                "unit": unidad["unit"],
+                "unit_amount": unit["amount"],
+                "unit": unit["unit"],
                 "promos": promos,
-                "coto_normalized_price": precio_normalizado_coto,
-                "effective_total_price": precio_efectivo_total,
-                "effective_price_per_normalized_unit": precio_efectivo_unidad_normalizada,
-                "raw_text": texto[:1200]
+                "coto_normalized_price": coto_normalized_price,
+                "effective_total_price": effective_total_price,
+                "effective_price_per_normalized_unit": effective_normalized_unit_price,
+                "raw_text": text[:1200]
             }
 
             print("\n------")
-            print(json.dumps(candidato, ensure_ascii=False, indent=2))
+            print(json.dumps(candidate, ensure_ascii=False, indent=2))
 
-            candidatos.append(candidato)
+            candidates.append(candidate)
 
         except Exception as e:
-            print("⚠️ Error leyendo candidato:", e)
+            print("⚠️ Error reading candidate:", e)
 
-    return candidatos
+    return candidates

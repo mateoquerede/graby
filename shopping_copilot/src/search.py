@@ -4,8 +4,8 @@ Search module
 Handles product search functionality on Coto Digital website.
 """
 
-def buscar_producto(page, query):
-    print(f"🔎 Buscando: {query}")
+def search_product(page, query):
+    print(f"🔎 Searching: {query}")
 
     page.goto("https://www.cotodigital.com.ar/sitios/cdigi/nuevositio")
     page.wait_for_load_state("domcontentloaded")
@@ -22,18 +22,18 @@ def buscar_producto(page, query):
     page.wait_for_load_state("networkidle")
     page.wait_for_timeout(5000)
 
-    print("✅ Resultados cargados")
+    print("✅ Results loaded")
 
 
-def ordenar_menor_precio(page):
+def sort_by_lowest_price(page):
     try:
         filtro = page.locator("select").first
 
         if filtro.count() > 0:
             filtro.select_option(label="Precio: de menor a mayor")
-            print("💰 Ordenado por menor precio")
+            print("💰 Sorted by lowest price")
             page.wait_for_load_state("networkidle")
             page.wait_for_timeout(4000)
 
     except Exception as e:
-        print("⚠️ No pude ordenar:", e)
+        print("⚠️ Could not sort:", e)

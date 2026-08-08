@@ -11,8 +11,8 @@ import ollama
 
 def extract_json(text):
     """
-    Extrae el primer array JSON válido desde la respuesta del modelo.
-    Sirve aunque Ollama agregue texto antes o después.
+    Extract the first valid JSON array from the model response.
+    Works even if Ollama adds text before or after.
     """
     candidates = re.findall(r"\[[\s\S]*?\]", text)
 
@@ -25,62 +25,62 @@ def extract_json(text):
         except json.JSONDecodeError:
             continue
 
-    raise ValueError(f"No se encontró un JSON válido en la respuesta:\n{text}")
+    raise ValueError(f"No valid JSON array found in response:\n{text}")
 
 
 def validate_plan(data):
     """
-    Valida que cada item tenga query y cantidad.
-    Normaliza cantidad a int cuando sea posible.
+    Validate that each item has query and quantity.
+    Normalize quantity to int when possible.
     """
     if not isinstance(data, list):
-        raise ValueError("El planner debe devolver una lista JSON")
+        raise ValueError("The planner must return a JSON list")
 
     validated = []
 
     for item in data:
         if not isinstance(item, dict):
-            raise ValueError(f"Item inválido: {item}")
+            raise ValueError(f"Invalid item: {item}")
 
         query = item.get("query")
-        cantidad = item.get("cantidad")
+        quantity = item.get("quantity")
 
         if not query:
-            raise ValueError(f"Item sin query: {item}")
+            raise ValueError(f"Missing query in item: {item}")
 
-        if cantidad is None:
-            raise ValueError(f"Item sin cantidad: {item}")
+        if quantity is None:
+            raise ValueError(f"Missing quantity in item: {item}")
 
         validated.append({
             "query": str(query).strip(),
-            "cantidad": int(float(cantidad))
+            "quantity": int(float(quantity))
         })
 
     return validated
 
 
-def plan(productos):
+def plan(products):
     prompt = f"""
-Convertí cada producto en una búsqueda de supermercado.
+Convert each product into a supermarket search.
 
-REGLAS OBLIGATORIAS:
-- Devolvé SOLO JSON válido.
-- No escribas explicaciones.
-- No uses markdown.
-- No uses ```json.
-- No agregues texto antes ni después.
-- Mantené la cantidad EXACTA.
-- No cambies números.
-- No agregues productos.
-- No elimines productos.
+REQUIRED RULES:
+- Return ONLY valid JSON.
+- Do not write explanations.
+- Do not use markdown.
+- Do not use ```json.
+- Do not add text before or after.
+- Keep the exact quantity.
+- Do not change numbers.
+- Do not add products.
+- Do not remove products.
 
-FORMATO EXACTO:
+EXACT FORMAT:
 [
-  {{"query":"leche entera","cantidad":2}}
+  {{"query":"whole milk","quantity":2}}
 ]
 
-PRODUCTOS:
-{json.dumps(productos, ensure_ascii=False)}
+PRODUCTS:
+{json.dumps(products, ensure_ascii=False)}
 """
 
     response = ollama.chat(
@@ -88,7 +88,7 @@ PRODUCTOS:
         messages=[
             {
                 "role": "system",
-                "content": "Sos un conversor estricto a JSON. Respondés únicamente JSON válido, sin texto adicional."
+                "content": "You are a strict JSON converter. Respond only with valid JSON, without additional text."
             },
             {
                 "role": "user",
@@ -103,7 +103,7 @@ PRODUCTOS:
 
     raw = response["message"]["content"].strip()
 
-    print("\n🧠 Respuesta planner:")
+    print("\n🧠 Planner response:")
     print(raw)
 
     data = extract_json(raw)

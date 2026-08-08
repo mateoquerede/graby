@@ -1,9 +1,19 @@
+"""
+Consumption Helper - Synchronize product consumption in Grocy.
+
+This script automates the process of marking products as consumed in Grocy:
+- Loads consumption rules from configuration
+- Connects to the Grocy API
+- Processes rules and marks products as consumed
+- Maintains persistent state to avoid duplicate operations
+"""
+
 import json
 import math
 from datetime import date, datetime
 from pathlib import Path
 import requests
-from consumption_helper.src.shared_config import (
+from shared.shared_config import (
     load_settings,
     load_consumption_rules
 )
@@ -86,7 +96,7 @@ class GrocyAPI:
         )
 
     def add_to_shopping_list(self, product_id, amount, shopping_list_id=1):
-        # 1) Grocy agrega el producto a la lista
+        # 1) Grocy adds the product to the list
         result = self.post(
             "/api/stock/shoppinglist/add-product",
             {
@@ -96,7 +106,7 @@ class GrocyAPI:
             }
         )
 
-        # 2) Buscamos la entrada creada/existente
+        # 2) Find the created or existing entry
         entries = self.get("/api/objects/shopping_list")
 
         matching = [
@@ -112,7 +122,7 @@ class GrocyAPI:
         entry = matching[-1]
         entry_id = entry["id"]
 
-        # 3) Forzamos la cantidad correcta
+        # 3) Force the correct amount
         entry["amount"] = amount
 
         return self.put(
@@ -131,8 +141,8 @@ def parse_date(value):
 
 def get_current_stock_amount(stock_entry):
     """
-    Grocy suele devolver 'stock_amount' en /api/stock/products/{id}.
-    Dejamos fallback por si cambia o viene como string.
+    Grocy usually returns 'stock_amount' in /api/stock/products/{id}.
+    Keep a fallback if the value changes or comes as a string.
     """
     value = (
         stock_entry.get("stock_amount")
@@ -200,12 +210,12 @@ def sync_consumption():
     grocy_cfg = settings["grocy"]
 
     if not grocy_cfg.get("enabled"):
-        raise RuntimeError("Grocy está deshabilitado en settings.json")
+        raise RuntimeError("Grocy is disabled in settings.json")
 
     rules = load_consumption_rules()
 
     if not rules:
-        raise RuntimeError("No existe consumption_rules.json")
+        raise RuntimeError("Missing consumption_rules.json")
 
     global_settings = rules.get("settings", {})
     products = rules.get("products", {})
@@ -220,7 +230,7 @@ def sync_consumption():
         api_key=grocy_cfg["api_key"]
     )
 
-    print("🔄 Sync consumo estimado")
+    print("🔄 Estimated consumption sync")
     print("Dry run:", dry_run)
 
     for name, rule in products.items():
@@ -239,14 +249,14 @@ def sync_consumption():
             last_run_date
         )
 
-        # Consumimos solo unidades enteras para evitar fracciones raras en Grocy
+        # Only consume whole units to avoid unusual fractions in Grocy
         consume_units = min(
             math.floor(estimated_consumption),
             math.floor(current_stock)
         )
         
         if math.floor(estimated_consumption) > current_stock:
-            print("⚠️ Stock insuficiente para consumir todo lo estimado")
+            print("⚠️ Not enough stock to consume the full estimated amount")
 
         estimated_stock_after_consumption = max(
             current_stock - consume_units,
@@ -259,22 +269,22 @@ def sync_consumption():
         )
 
         print("\n----------------")
-        print("Producto:", name)
+        print("Product:", name)
         print("Grocy ID:", product_id)
-        print("Stock actual Grocy:", current_stock)
-        print("Último cálculo:", last_run_raw)
-        print("Días pasados:", days_passed)
-        print("Consumo estimado:", estimated_consumption)
-        print("Consumo a registrar:", consume_units)
-        print("Stock estimado post consumo:", estimated_stock_after_consumption)
-        print("Días restantes:", round(days_left, 2))
+        print("Current Grocy stock:", current_stock)
+        print("Last calculation:", last_run_raw)
+        print("Days passed:", days_passed)
+        print("Estimated consumption:", estimated_consumption)
+        print("Units to consume:", consume_units)
+        print("Estimated stock after consumption:", estimated_stock_after_consumption)
+        print("Days left:", round(days_left, 2))
 
         if consume_units > 0:
             if dry_run:
-                print(f"DRY RUN: consumiría {consume_units}")
+                print(f"DRY RUN: would consume {consume_units}")
             else:
                 api.consume_product(product_id, consume_units)
-                print(f"✅ Consumido en Grocy: {consume_units}")
+                print(f"✅ Consumed in Grocy: {consume_units}")
 
         add_to_list = should_add_to_shopping_list(
             estimated_stock_after_consumption,
@@ -287,16 +297,16 @@ def sync_consumption():
             buy_amount = float(rule.get("buy_amount", 1))
 
             if dry_run:
-                print(f"DRY RUN: agregaría a shopping list x{buy_amount}")
+                print(f"DRY RUN: would add to shopping list x{buy_amount}")
             else:
                 api.add_to_shopping_list(
                     product_id=product_id,
                     amount=buy_amount,
                     shopping_list_id=shopping_list_id
                 )
-                print(f"🛒 Agregado a shopping list x{buy_amount}")
+                print(f"🛒 Added to shopping list x{buy_amount}")
         else:
-            print("✅ No necesita compra")
+            print("✅ No purchase needed")
 
         product_state["last_consumption_calc_date"] = today_iso()
         product_state["last_estimated_stock"] = estimated_stock_after_consumption
@@ -306,8 +316,14 @@ def sync_consumption():
 
     if not dry_run:
         save_json(STATE_PATH, state)
-        print("\n💾 Estado actualizado")
+        print("\n💾 State updated")
     else:
+        print("\nDRY RUN: state not updated")
+
+
+if __name__ == "__main__":
+    sync_consumption()
+
         print("\nDRY RUN: estado no actualizado")
 
 

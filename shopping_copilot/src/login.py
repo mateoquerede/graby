@@ -11,7 +11,7 @@ def login(page):
 
     settings = load_settings()
     
-    print("🔐 Login...")
+    print("🔐 Logging in...")
 
     page.wait_for_load_state("domcontentloaded")
 
@@ -26,4 +26,4 @@ def login(page):
 
     time.sleep(3)
 
-    print("✅ Logueado")
+    print("✅ Logged in")
