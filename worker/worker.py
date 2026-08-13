@@ -22,6 +22,7 @@ import os
 import sys
 import traceback
 
+import httpx
 import redis
 from playwright.sync_api import sync_playwright
 
@@ -67,7 +68,14 @@ def process_job(job: dict):
 
     try:
         publish(r, job_id, "INTERPRETING_REQUEST", "Interpretando tu pedido...")
-        products = generate_shopping_list_from_prompt(message)
+        try:
+            products = generate_shopping_list_from_prompt(message)
+        except httpx.ConnectError:
+            publish(
+                r, job_id, "FAILED",
+                "No se pudo conectar al servicio de IA (Ollama). Verificá que esté disponible e intentá nuevamente.",
+            )
+            return
         tasks = plan(products)
 
         if not tasks:
