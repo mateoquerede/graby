@@ -18,7 +18,9 @@ services:
       - redis
 
   worker:
-    build: ./worker
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
     restart: unless-stopped
     environment:
       REDIS_URL: redis://redis:6379

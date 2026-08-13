@@ -8,14 +8,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY worker/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN playwright install firefox --with-deps
 
-# Copy worker code and shared shopping logic
-COPY . /app/worker
-COPY ../shopping_copilot /app/shopping_copilot
-
-WORKDIR /app
+# Copy worker code and the shared shopping logic (context = repo root)
+COPY worker/ /app/worker/
+COPY shopping_copilot/ /app/shopping_copilot/
+COPY shared/ /app/shared/
 
 CMD ["python", "worker/worker.py"]
