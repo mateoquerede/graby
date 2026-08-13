@@ -54,7 +54,14 @@ def publish(r: redis.Redis, job_id: str, status: str, message: str, **extra):
     payload = {"status": status, "message": message, **extra}
     r.publish(f"graby:events:{job_id}", json.dumps(payload))
     # Also store latest status for polling fallback
-    r.hset(f"graby:job:{job_id}", mapping={"status": status, "last_message": message})
+    r.hset(
+        f"graby:job:{job_id}",
+        mapping={
+            "status": status,
+            "last_message": message,
+            "last_event": json.dumps(payload),
+        },
+    )
 
 
 def process_job(job: dict):
