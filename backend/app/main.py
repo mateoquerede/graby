@@ -89,7 +89,10 @@ async def create_purchase(body: PurchaseRequest):
     )
 
     r = get_redis_sync()
-    await r.hset(f"graby:job:{job_id}", mapping={"status": "PENDING", "last_message": ""})
+    await r.hset(
+        f"graby:job:{job_id}",
+        mapping={"status": "PENDING", "last_message": "", "last_event": ""},
+    )
     await r.rpush(QUEUE_KEY, job_payload)
     await r.aclose()
 
@@ -111,6 +114,13 @@ async def get_purchase(job_id: str):
 @app.get("/api/purchases/{job_id}/events")
 async def purchase_events(job_id: str):
     """Server-Sent Events stream for a purchase job."""
+    job_key = f"graby:job:{job_id}"
+    check_r = get_redis_sync()
+    exists = await check_r.exists(job_key)
+    await check_r.aclose()
+
+    if not exists:
+        raise HTTPException(status_code=404, detail="Job not found")
 
     async def event_generator():
         r = get_redis_sync()
@@ -122,6 +132,18 @@ async def purchase_events(job_id: str):
         try:
             # Send initial ping so the browser connection opens immediately
             yield "event: ping\ndata: {}\n\n"
+
+            initial_state = await r.hgetall(job_key)
+            if initial_state:
+                initial_event = initial_state.get("last_event")
+                if initial_event:
+                    yield f"event: worker_status\ndata: {initial_event}\n\n"
+                    try:
+                        parsed_initial = json.loads(initial_event)
+                        if parsed_initial.get("status") in terminal_statuses:
+                            return
+                    except json.JSONDecodeError:
+                        pass
 
             while True:
                 message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
@@ -136,6 +158,20 @@ async def purchase_events(job_id: str):
                             break
                     except json.JSONDecodeError:
                         pass
+                else:
+                    # Fallback for clients that connect after pub/sub terminal event.
+                    state = await r.hgetall(job_key)
+                    status = state.get("status")
+                    if status in terminal_statuses:
+                        fallback_event = state.get("last_event")
+                        if fallback_event:
+                            yield f"event: worker_status\ndata: {fallback_event}\n\n"
+                        else:
+                            fallback_payload = json.dumps(
+                                {"status": status, "message": state.get("last_message", "")}
+                            )
+                            yield f"event: worker_status\ndata: {fallback_payload}\n\n"
+                        break
 
                 await asyncio.sleep(0.1)
         finally:
