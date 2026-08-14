@@ -8,7 +8,7 @@ based on rules, blocked items, and pricing criteria.
 import json
 import re
 import ollama
-from shopping_copilot.src.config import debug_print
+from shopping_copilot.src.config import debug_print, OLLAMA_MODEL
 
 
 def extract_json_object(raw):
@@ -30,7 +30,7 @@ def extract_json_object(raw):
 
 
 def evaluate_product_with_ai(requested_product, quantity, candidates, blocked, rules):
-    model_name = rules.get("ollama_model", "llama3")
+    model_name = rules.get("ollama_model", OLLAMA_MODEL)
 
     blocked_plu = set(str(x) for x in blocked.get("plu", []))
 

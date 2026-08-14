@@ -8,7 +8,7 @@ for supermarket shopping, maintaining exact quantities.
 import json
 import re
 import ollama
-from shopping_copilot.src.config import debug_print
+from shopping_copilot.src.config import debug_print, OLLAMA_MODEL
 
 
 def singularize_spanish_query(query):
@@ -132,7 +132,7 @@ PRODUCTS:
 """
 
     response = ollama.chat(
-        model="llama3",
+        model=OLLAMA_MODEL,
         messages=[
             {
                 "role": "system",
@@ -184,7 +184,7 @@ USER REQUEST:
 """
 
     response = ollama.chat(
-        model="llama3",
+        model=OLLAMA_MODEL,
         messages=[
             {
                 "role": "system",

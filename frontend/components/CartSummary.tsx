@@ -1,4 +1,4 @@
-import { CartItem } from "./Chat";
+import { CartItem } from "./Chat.types";
 
 interface Props {
   items: CartItem[];

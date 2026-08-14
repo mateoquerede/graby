@@ -7,8 +7,11 @@ Provides functionality to clear the shopping cart on Coto Digital.
 def clear_cart(page):
     print("🧹 Opening cart...")
 
-    page.goto("https://www.cotodigital.com.ar/sitios/cdigi/carrito")
-    page.wait_for_load_state("domcontentloaded")
+    page.goto(
+        "https://www.cotodigital.com.ar/sitios/cdigi/carrito",
+        wait_until="domcontentloaded",
+        timeout=45000,
+    )
 
     if page.locator("text=No tiene ningún artículo").count() > 0:
         print("✅ Cart is already empty")

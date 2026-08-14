@@ -7,8 +7,11 @@ Handles product search functionality on Coto Digital website.
 def search_product(page, query):
     print(f"🔎 Searching: {query}")
 
-    page.goto("https://www.cotodigital.com.ar/sitios/cdigi/nuevositio")
-    page.wait_for_load_state("domcontentloaded")
+    page.goto(
+        "https://www.cotodigital.com.ar/sitios/cdigi/nuevositio",
+        wait_until="domcontentloaded",
+        timeout=45000,
+    )
 
     buscador = page.get_by_placeholder("¿Qué querés comprar hoy?")
     buscador.wait_for(state="visible", timeout=20000)

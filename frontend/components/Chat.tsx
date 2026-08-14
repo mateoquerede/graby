@@ -2,10 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import CredentialsForm from "./CredentialsForm";
-import Message from "./Message";
-import CartSummary from "./CartSummary";
+import ChatMessageList from "./ChatMessageList";
+import MonitorModal from "./MonitorModal";
+import { ChatMessage, Phase } from "./Chat.types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || API_URL.replace(/^http/, "ws");
+const MONITOR_URL =
+  process.env.NEXT_PUBLIC_MONITOR_URL ||
+  "http://localhost:6080/vnc.html?autoconnect=true&resize=scale&view_only=true";
 
 // Human-readable labels for worker states
 const STATUS_LABELS: Record<string, string> = {
@@ -19,29 +24,45 @@ const STATUS_LABELS: Record<string, string> = {
   PRODUCT_NOT_FOUND: "",
   PRODUCT_ERROR: "",
   CART_READY: "Carrito listo ✅",
+  LIVE_MONITOR_READY: "Monitor en vivo conectado ✅",
   COMPLETED: "",
   FAILED: "",
 };
 
-type Msg =
-  | { role: "assistant" | "user"; text: string }
-  | { role: "status"; text: string; icon?: string }
-  | { role: "summary"; items: CartItem[]; total: number; checkoutUrl: string };
+function formatBrowserAction(event: Record<string, unknown>) {
+  const action = typeof event.action === "string" ? event.action : "";
+  const query = typeof event.query === "string" ? event.query : "";
+  const target = typeof event.target === "string" ? event.target : "";
+  const product = typeof event.product === "string" ? event.product : "";
+  const quantity = typeof event.quantity === "number" ? event.quantity : null;
+  const url = typeof event.url === "string" ? event.url : "";
 
-export interface CartItem {
-  requested: string;
-  name: string;
-  quantity: number;
-  price?: number;
-  reason: string;
+  switch (action) {
+    case "search":
+      return query ? `Buscando "${query}"...` : "Buscando producto...";
+    case "click":
+      return target ? `Click en "${target}".` : "Click en página.";
+    case "product_added":
+      return product
+        ? `Producto agregado: ${product}${quantity ? ` x${quantity}` : ""}.`
+        : "Producto agregado al carrito.";
+    case "navigate":
+      return url ? `Navegando: ${url}` : "Abriendo página...";
+    case "login":
+      return "Acción: inicio de sesión en tienda.";
+    case "clear_cart":
+      return "Acción: limpiando carrito.";
+    case "open_cart":
+      return "Abriendo carrito final.";
+    default:
+      return "Acción en navegador.";
+  }
 }
-
-type Phase = "credentials" | "prompt" | "working" | "done";
 
 export default function Chat() {
   const [phase, setPhase] = useState<Phase>("credentials");
   const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
-  const [messages, setMessages] = useState<Msg[]>([
+  const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
       text: "Hola 👋 Para comenzar necesito acceder a tu cuenta para hacer las compras.",
@@ -49,13 +70,15 @@ export default function Chat() {
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [monitorEnabled, setMonitorEnabled] = useState(false);
+  const [monitorOpen, setMonitorOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  function pushMsg(msg: Msg) {
+  function pushMsg(msg: ChatMessage) {
     setMessages((prev) => [...prev, msg]);
   }
 
@@ -68,12 +91,12 @@ export default function Chat() {
   async function handleSend() {
     const text = input.trim();
     if (!text || busy || !credentials) return;
+    const monitorRequested = monitorEnabled;
 
     setInput("");
     setBusy(true);
     pushMsg({ role: "user", text });
 
-    // Create job
     let jobId: string;
     try {
       const res = await fetch(`${API_URL}/api/purchases`, {
@@ -83,6 +106,7 @@ export default function Chat() {
           message: text,
           email: credentials.email,
           password: credentials.password,
+          monitor_playwright: monitorRequested,
         }),
       });
 
@@ -95,6 +119,17 @@ export default function Chat() {
 
       const data = await res.json();
       jobId = data.job_id;
+      if (monitorRequested) {
+        setMonitorOpen(true);
+      }
+
+      if (data.status === "PENDING") {
+        pushMsg({
+          role: "status",
+          text: "Hay pedidos en cola. Cuando el worker se desocupe, sigo con el tuyo.",
+          icon: "⏳",
+        });
+      }
     } catch {
       pushMsg({ role: "assistant", text: "❌ No pude conectarme al servidor. Intentá de nuevo." });
       setBusy(false);
@@ -103,49 +138,71 @@ export default function Chat() {
 
     setPhase("working");
 
-    // Subscribe to SSE
-    const sse = new EventSource(`${API_URL}/api/purchases/${jobId}/events`);
+    const ws = new WebSocket(`${WS_BASE_URL}/api/purchases/${jobId}/ws`);
+    let closedByTerminal = false;
 
-    sse.addEventListener("worker_status", (e) => {
+    ws.onmessage = (e) => {
       try {
-        const event = JSON.parse(e.data);
-        const { status, message, items, total, checkout_url } = event;
+        const event = JSON.parse(e.data) as Record<string, unknown>;
+        if (event.type === "ping") {
+          return;
+        }
+
+        if (event.type === "browser_action") {
+          pushMsg({ role: "action", text: formatBrowserAction(event), icon: "•" });
+          return;
+        }
+
+        const status = typeof event.status === "string" ? event.status : "";
+        const message = typeof event.message === "string" ? event.message : "";
+        const items = Array.isArray(event.items) ? event.items : [];
+        const total = typeof event.total === "number" ? event.total : 0;
+        const checkoutUrl =
+          typeof event.checkout_url === "string"
+            ? event.checkout_url
+            : "https://www.cotodigital.com.ar/sitios/cdigi/carrito";
 
         if (status === "COMPLETED") {
-          sse.close();
+          closedByTerminal = true;
+          ws.close();
           setBusy(false);
           setPhase("done");
           pushMsg({
             role: "summary",
-            items: items ?? [],
-            total: total ?? 0,
-            checkoutUrl: checkout_url ?? "https://www.cotodigital.com.ar/sitios/cdigi/carrito",
+            items,
+            total,
+            checkoutUrl,
           });
           return;
         }
 
         if (status === "FAILED") {
-          sse.close();
+          closedByTerminal = true;
+          ws.close();
           setBusy(false);
           setPhase("prompt");
           pushMsg({ role: "assistant", text: `❌ ${message}` });
           return;
         }
 
-        // Show meaningful status messages in the chat
         const label = STATUS_LABELS[status];
         const display = label !== undefined ? (label || message) : message;
-
         if (display) {
           pushMsg({ role: "status", text: display });
         }
       } catch {
         // ignore parse errors
       }
-    });
+    };
 
-    sse.onerror = () => {
-      sse.close();
+    ws.onerror = () => {
+      ws.close();
+    };
+
+    ws.onclose = () => {
+      if (closedByTerminal) {
+        return;
+      }
       setBusy(false);
       setPhase("prompt");
       pushMsg({ role: "assistant", text: "❌ Se interrumpió la conexión con el servidor." });
@@ -154,33 +211,29 @@ export default function Chat() {
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden pt-4 gap-4">
-      {/* Message list */}
-      <div className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1">
-        {messages.map((msg, i) => {
-          if (msg.role === "summary") {
-            return (
-              <CartSummary
-                key={i}
-                items={msg.items}
-                total={msg.total}
-                checkoutUrl={msg.checkoutUrl}
-              />
-            );
-          }
-          return <Message key={i} msg={msg} />;
-        })}
-        {busy && (
-          <div className="flex items-center gap-2 text-sm text-gray-400 pl-2">
-            <span className="animate-spin">⏳</span>
-            <span>Graby está trabajando...</span>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
+      <ChatMessageList messages={messages} busy={busy} bottomRef={bottomRef} />
 
-      {/* Input area */}
       {phase === "credentials" && (
         <CredentialsForm onSubmit={handleCredentials} />
+      )}
+
+      {phase !== "credentials" && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              setMonitorEnabled((prev) => !prev);
+              setMonitorOpen(true);
+            }}
+            className={`rounded-xl px-4 py-2 text-xs font-medium transition-colors ${
+              monitorEnabled
+                ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            {monitorEnabled ? "Monitorear: activado" : "Monitorear"}
+          </button>
+        </div>
       )}
 
       {(phase === "prompt" || phase === "done") && (
@@ -208,6 +261,13 @@ export default function Chat() {
           </button>
         </form>
       )}
+
+      <MonitorModal
+        open={monitorOpen}
+        monitorEnabled={monitorEnabled}
+        monitorUrl={MONITOR_URL}
+        onClose={() => setMonitorOpen(false)}
+      />
     </div>
   );
 }

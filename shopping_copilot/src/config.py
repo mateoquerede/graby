@@ -31,3 +31,5 @@ def debug_print(*args, **kwargs):
 
 BLOCKED = load_json(PROJECT_DIR / "blocked.json", default={})
 RULES = load_json(PROJECT_DIR / "rules.json", default={})
+
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2")

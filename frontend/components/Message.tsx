@@ -1,5 +1,7 @@
+import { NonSummaryMessage } from "./Chat.types";
+
 interface Props {
-  msg: { role: "assistant" | "user" | "status"; text: string; icon?: string };
+  msg: NonSummaryMessage;
 }
 
 export default function Message({ msg }: Props) {
@@ -17,6 +19,15 @@ export default function Message({ msg }: Props) {
     return (
       <div className="flex items-start gap-2 text-sm text-gray-400 pl-2">
         <span>{msg.icon ?? "🔄"}</span>
+        <span>{msg.text}</span>
+      </div>
+    );
+  }
+
+  if (msg.role === "action") {
+    return (
+      <div className="flex items-start gap-2 text-sm text-indigo-500 pl-2">
+        <span>{msg.icon ?? "•"}</span>
         <span>{msg.text}</span>
       </div>
     );

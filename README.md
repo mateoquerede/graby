@@ -22,7 +22,7 @@ Visit [heygraby.com](https://heygraby.com).
 | Frontend | Next.js 14, Tailwind CSS |
 | Backend / API | FastAPI (Python) |
 | Queue | Redis |
-| Worker | Python, Playwright, Ollama |
+| Worker | Python, Playwright, Ollama, Xvfb, noVNC |
 
 ---
 
@@ -47,6 +47,7 @@ docker compose up --build
 - Frontend → http://localhost:3000
 - API → http://localhost:8000
 - API docs → http://localhost:8000/docs
+- Live browser (noVNC) → http://localhost:6080/vnc.html
 
 ### Run without Docker
 

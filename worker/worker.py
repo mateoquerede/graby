@@ -3,7 +3,7 @@ Worker entry point.
 
 Polls Redis for purchase jobs, runs the Playwright automation,
 and publishes status events back to Redis pub/sub so the
-backend can stream them to the frontend via SSE.
+backend can stream them to the frontend via SSE/WebSocket.
 
 Each job payload:
     {
@@ -41,6 +41,7 @@ from coto.add_product import add_product_with_result
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 QUEUE_KEY = "graby:jobs"
+MONITOR_HOLD_MS = int(os.environ.get("MONITOR_HOLD_MS", "5000"))
 
 CART_URL = "https://www.cotodigital.com.ar/sitios/cdigi/carrito"
 
@@ -50,7 +51,7 @@ def get_redis():
 
 
 def publish(r: redis.Redis, job_id: str, status: str, message: str, **extra):
-    payload = {"status": status, "message": message, **extra}
+    payload = {"type": "status", "status": status, "message": message, **extra}
     r.publish(f"graby:events:{job_id}", json.dumps(payload))
     # Also store latest status for polling fallback
     r.hset(
@@ -62,6 +63,10 @@ def publish(r: redis.Redis, job_id: str, status: str, message: str, **extra):
         },
     )
 
+def publish_browser_action(r: redis.Redis, job_id: str, action: str, **extra):
+    payload = {"type": "browser_action", "action": action, **extra}
+    r.publish(f"graby:events:{job_id}", json.dumps(payload))
+
 
 def process_job(job: dict):
     r = get_redis()
@@ -69,6 +74,8 @@ def process_job(job: dict):
     email = job["email"]
     password = job["password"]
     message = job["message"]
+    monitor_raw = job.get("monitor_playwright")
+    monitor_playwright = True if monitor_raw is None else bool(monitor_raw)
 
     publish(r, job_id, "STARTING", "Iniciando el asistente de compras...")
 
@@ -96,19 +103,44 @@ def process_job(job: dict):
         )
 
         with sync_playwright() as p:
-            browser = p.firefox.launch(headless=True)
-            context = browser.new_context()
-
-            context.route(
-                "**/*",
-                lambda route: route.abort()
-                if route.request.resource_type in {"image", "font", "media"}
-                else route.continue_(),
+            browser = p.chromium.launch(
+                headless=not monitor_playwright,
+                slow_mo=250 if monitor_playwright else 0,
+                args=[
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--ozone-platform=x11",
+                    "--window-size=1360,760",
+                ],
+                env={**os.environ, "DISPLAY": os.environ.get("DISPLAY", ":99")},
             )
+            context = browser.new_context(viewport=None if monitor_playwright else {"width": 1360, "height": 760})
+
+            if not monitor_playwright:
+                context.route(
+                    "**/*",
+                    lambda route: route.abort()
+                    if route.request.resource_type in {"image", "font", "media"}
+                    else route.continue_(),
+                )
 
             page = context.new_page()
             page.set_default_timeout(15000)
-            page.goto("https://www.cotodigital.com.ar")
+            page.set_default_navigation_timeout(45000)
+            page.goto("https://www.cotodigital.com.ar", wait_until="domcontentloaded")
+            if monitor_playwright:
+                page.bring_to_front()
+            publish_browser_action(r, job_id, "navigate", url=page.url, target="home")
+            if monitor_playwright:
+                publish(
+                    r,
+                    job_id,
+                    "LIVE_MONITOR_READY",
+                    "Monitor en vivo activo.",
+                    stream_type="vnc",
+                )
+                page.wait_for_timeout(1500)
 
             publish(r, job_id, "AUTHENTICATING", "Iniciando sesión...")
 
@@ -124,8 +156,10 @@ def process_job(job: dict):
                 return
 
             publish(r, job_id, "AUTHENTICATED", "Sesión iniciada correctamente.")
+            publish_browser_action(r, job_id, "login", url=page.url)
 
             clear_cart(page)
+            publish_browser_action(r, job_id, "clear_cart", url=page.url)
 
             selected_items = []
 
@@ -136,11 +170,19 @@ def process_job(job: dict):
                 quantity = task["quantity"]
 
                 publish(r, job_id, "SEARCHING_PRODUCTS", f'Buscando "{query}"...')
+                publish_browser_action(r, job_id, "search", query=query, url=page.url)
 
                 try:
                     search_product(page, query)
                     result = add_product_with_result(
                         page, quantity, requested_product=query
+                    )
+                    publish_browser_action(
+                        r,
+                        job_id,
+                        "click",
+                        target="Agregar al carrito",
+                        query=query,
                     )
 
                     if result:
@@ -148,6 +190,14 @@ def process_job(job: dict):
                             r, job_id, "PRODUCT_ADDED",
                             f"Agregué {quantity}x {result['name']} al carrito.",
                             product=result,
+                        )
+                        publish_browser_action(
+                            r,
+                            job_id,
+                            "product_added",
+                            product=result["name"],
+                            quantity=quantity,
+                            url=page.url,
                         )
                         selected_items.append(result)
                     else:
@@ -164,8 +214,12 @@ def process_job(job: dict):
                         requested=query,
                     )
 
-            page.goto(CART_URL)
+            page.goto(CART_URL, wait_until="domcontentloaded", timeout=45000)
             checkout_url = page.url
+            if monitor_playwright:
+                page.bring_to_front()
+                page.wait_for_timeout(MONITOR_HOLD_MS)
+            publish_browser_action(r, job_id, "open_cart", url=checkout_url)
 
             context.close()
             browser.close()
