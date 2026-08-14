@@ -13,9 +13,8 @@ COPY worker/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN playwright install --with-deps firefox
 
-# Copy worker code and the shared shopping logic (context = repo root)
+# Copy worker code and shopping automation helpers (context = repo root)
 COPY worker/ /app/worker/
 COPY shopping_copilot/ /app/shopping_copilot/
-COPY shared/ /app/shared/
 
 CMD ["python", "worker/worker.py"]

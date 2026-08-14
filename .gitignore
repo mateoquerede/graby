@@ -1,4 +1,4 @@
-# Python
+﻿# Python
 __pycache__/
 *.py[cod]
 *.pyo
@@ -13,17 +13,6 @@ build/
 
 # Development
 .vscode/
-.github/
-
-# Shared secrets
-shared/settings.json
-
-# Runtime/generated files
-consumption_helper/consumption_state.json
-consumption.bat
-consumption_launcher.py
-shopping.bat
-shopping_launcher.py
 
 # OS
 .DS_Store
@@ -36,5 +25,5 @@ Thumbs.db
 frontend/node_modules/
 frontend/.next/
 
-# Docker
+# Logs
 *.log

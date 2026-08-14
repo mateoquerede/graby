@@ -26,16 +26,15 @@ import httpx
 import redis
 from playwright.sync_api import sync_playwright
 
-# Resolve imports: worker/ shares logic from shopping_copilot/src/
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+# Resolve imports: worker/ + shopping_copilot/ from repo root
+WORKER_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.abspath(os.path.join(WORKER_DIR, ".."))
 sys.path.insert(0, ROOT)
+sys.path.insert(0, WORKER_DIR)
 
 from shopping_copilot.src.planner import generate_shopping_list_from_prompt, plan
 from shopping_copilot.src.search import search_product
 from shopping_copilot.src.cart import clear_cart
-from shopping_copilot.src.product_parser import extract_candidates
-from shopping_copilot.src.evaluator import evaluate_product_with_ai
-from shopping_copilot.src.config import BLOCKED, RULES
 
 from coto.login import login_with_credentials
 from coto.add_product import add_product_with_result

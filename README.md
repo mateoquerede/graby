@@ -1,4 +1,4 @@
-# Graby
+﻿# Graby
 
 **Graby** is an AI shopping assistant that understands natural language and fills your supermarket cart for you.
 
@@ -91,9 +91,9 @@ npm run dev
 graby/
 ├── frontend/          # Next.js chat UI
 ├── backend/           # FastAPI — job creation, SSE streaming
-├── worker/            # Python worker — Playwright automation
-│   └── coto/          # Supermarket-specific adapters
-├── shopping_copilot/  # Core shopping logic (search, evaluator, planner)
+├── worker/            # Playwright worker + Coto adapters
+│   └── coto/
+├── shopping_copilot/  # Search, planner, evaluator, cart helpers
 ├── docker-compose.yml
 └── .env.example
 ```

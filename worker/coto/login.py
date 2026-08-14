@@ -1,7 +1,4 @@
-"""
-Login helper that accepts credentials as parameters instead of
-reading them from settings.json.
-"""
+"""Login helper for Coto Digital using per-job credentials."""
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
