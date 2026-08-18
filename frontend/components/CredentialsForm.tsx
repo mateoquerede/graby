@@ -22,7 +22,7 @@ export default function CredentialsForm({ onSubmit }: Props) {
       </p>
       <input
         type="text"
-        placeholder="Usuario o email"
+        placeholder="Documento, email o usuario"
         autoComplete="username"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
