@@ -96,6 +96,31 @@ def add_by_plu(page, selected_plu, quantity):
     debug_print(f"PLU selector: {selected_plu}")
     debug_print(f"Resolved item_id: {item_id}")
 
+    # Handle address popup before clicking add button
+    try:
+        page.wait_for_timeout(500)
+        popup_selectors = [
+            ".modal",
+            ".modal-dialog", 
+            "[role='dialog']",
+            ".modal-content",
+            ".popup"
+        ]
+        
+        for selector in popup_selectors:
+            popup = page.locator(selector).first
+            if popup.count() > 0 and popup.is_visible(timeout=500):
+                popup_text = popup.inner_text(timeout=1000)
+                if any(keyword in popup_text.lower() for keyword in ["dirección", "enviar", "entregar", "cambiar"]):
+                    confirm_button = page.get_by_text("Confirmar", exact=False).first
+                    if confirm_button.count() > 0 and confirm_button.is_visible(timeout=500):
+                        confirm_button.click(timeout=3000)
+                        debug_print("✅ Address popup handled in add_by_plu")
+                        page.wait_for_timeout(1500)
+                        break
+    except Exception as e:
+        debug_print(f"⚠️ No address popup in add_by_plu: {e}")
+
     btn = card.locator("button:has-text('Agregar')").first
     btn.wait_for(state="visible", timeout=15000)
 

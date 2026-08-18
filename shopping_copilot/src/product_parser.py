@@ -31,15 +31,28 @@ def get_add_buttons(page):
         "a:has-text('Agregar')",
         "[role='button']:has-text('Agregar')",
         ".btn:has-text('Agregar')",
+        "button:has-text('AGREGAR')",
+        "a:has-text('AGREGAR')",
+        "button:has-text('Agregar al carrito')",
+        "a:has-text('Agregar al carrito')",
+        "button[type='button']",
+        "button.add-to-cart",
+        ".add-to-cart",
+        "[class*='add']",
+        "[class*='cart']",
     ]
 
     for selector in selectors:
-        loc = page.locator(selector)
-        count = loc.count()
-        debug_print(f"Selector {selector} -> {count}")
+        try:
+            loc = page.locator(selector)
+            count = loc.count()
+            debug_print(f"Selector {selector} -> {count}")
 
-        if count > 0:
-            return loc
+            if count > 0:
+                return loc
+        except Exception as e:
+            debug_print(f"Selector {selector} failed: {e}")
+            continue
 
     return None
 
@@ -180,6 +193,31 @@ def calculate_effective_price(unit_price, quantity, promos):
 
 
 def extract_candidates(page, quantity):
+    # Handle address popup before extracting candidates
+    try:
+        page.wait_for_timeout(1000)
+        popup_selectors = [
+            ".modal",
+            ".modal-dialog", 
+            "[role='dialog']",
+            ".modal-content",
+            ".popup"
+        ]
+        
+        for selector in popup_selectors:
+            popup = page.locator(selector).first
+            if popup.count() > 0 and popup.is_visible(timeout=500):
+                popup_text = popup.inner_text(timeout=1000)
+                if any(keyword in popup_text.lower() for keyword in ["dirección", "enviar", "entregar", "cambiar"]):
+                    confirm_button = page.get_by_text("Confirmar", exact=False).first
+                    if confirm_button.count() > 0 and confirm_button.is_visible(timeout=500):
+                        confirm_button.click(timeout=3000)
+                        debug_print("✅ Address popup handled in extract_candidates")
+                        page.wait_for_timeout(1500)
+                        break
+    except Exception as e:
+        debug_print(f"⚠️ No address popup in extract_candidates: {e}")
+    
     products = get_add_buttons(page)
 
     if products is None:

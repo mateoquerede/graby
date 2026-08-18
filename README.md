@@ -44,6 +44,11 @@ cp .env.example .env
 docker compose up --build
 ```
 
+This compose setup runs in development mode with hot reload:
+- Frontend: Next.js dev server with live refresh
+- Backend: Uvicorn `--reload`
+- Worker: auto-restart on Python changes in `worker/` and `shopping_copilot/`
+
 - Frontend → http://localhost:3000
 - API → http://localhost:8000
 - API docs → http://localhost:8000/docs

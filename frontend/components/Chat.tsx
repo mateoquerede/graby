@@ -10,7 +10,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || API_URL.replace(/^http/, "ws");
 const MONITOR_URL =
   process.env.NEXT_PUBLIC_MONITOR_URL ||
-  "http://localhost:6080/vnc.html?autoconnect=true&resize=scale&view_only=true";
+  "http://localhost:6080/vnc_lite.html?autoconnect=true&scale=true&view_only=true";
 
 // Human-readable labels for worker states
 const STATUS_LABELS: Record<string, string> = {
@@ -222,8 +222,12 @@ export default function Chat() {
           <button
             type="button"
             onClick={() => {
-              setMonitorEnabled((prev) => !prev);
-              setMonitorOpen(true);
+              if (!monitorEnabled) {
+                setMonitorEnabled(true);
+                setMonitorOpen(true);
+              } else {
+                setMonitorOpen((prev) => !prev);
+              }
             }}
             className={`rounded-xl px-4 py-2 text-xs font-medium transition-colors ${
               monitorEnabled
@@ -231,7 +235,7 @@ export default function Chat() {
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
-            {monitorEnabled ? "Monitorear: activado" : "Monitorear"}
+            {!monitorEnabled ? "Monitorear" : monitorOpen ? "Monitorear: activado" : "Monitorear: minimizado"}
           </button>
         </div>
       )}
