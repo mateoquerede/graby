@@ -1,4 +1,4 @@
-"""Deterministic safety and cost limits for Ollama requests."""
+"""Deterministic safety and cost limits for LLM requests."""
 
 import re
 
@@ -19,6 +19,7 @@ SHOPPING_TERMS = {
     "producto", "queso", "sal", "shampoo", "supermercado", "vino", "yogur",
     "yerba",
 }
+SHOPPING_UNITS = r"(?:kg|kgs|kilo(?:s)?|g|gr|gramo(?:s)?|l|lt|lts|litro(?:s)?|ml|unidad(?:es)?|pack|caja(?:s)?|botella(?:s)?)"
 INJECTION_PATTERNS = (
     r"\b(ignore|ignora|olvida|forget|disregard)\b.{0,40}\b(instrucciones?|rules?|reglas?)\b",
     r"\b(system|developer|assistant)\s*:",
@@ -42,7 +43,11 @@ def validate_ai_input(text, *, max_chars=MAX_AI_PROMPT_CHARS, require_shopping_t
         raise ValueError("El pedido contiene instrucciones no permitidas.")
 
     tokens = _tokens(value)
-    if require_shopping_terms and not (tokens & SHOPPING_TERMS):
+    has_quantity = re.search(rf"\b\d+(?:[.,]\d+)?\s*{SHOPPING_UNITS}\b", value, re.IGNORECASE)
+    has_multiple_quantity_items = len(re.findall(r"\b\d+(?:[.,]\d+)?\b", value)) >= 2
+    if require_shopping_terms and not (
+        tokens & SHOPPING_TERMS or has_quantity or has_multiple_quantity_items
+    ):
         raise ValueError("Solo puedo ayudarte a armar un carrito de compras.")
     return value
 

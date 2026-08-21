@@ -185,6 +185,11 @@ export default function Chat() {
           return;
         }
 
+        if (status === "DEBUG_LLM_USAGE" && event.debug === true) {
+          pushMsg({ role: "status", text: message, icon: "🧠" });
+          return;
+        }
+
         const label = STATUS_LABELS[status];
         const display = label !== undefined ? (label || message) : message;
         if (display) {

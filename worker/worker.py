@@ -33,6 +33,8 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, WORKER_DIR)
 
 from shopping_copilot.src.planner import generate_shopping_list_from_prompt, plan
+from shopping_copilot.src.llm_service import LLMServiceError, drain_usage_events
+from shopping_copilot.src.config import is_debug_enabled
 from shopping_copilot.src.search import search_product
 from shopping_copilot.src.cart import clear_cart, should_clear_cart
 
@@ -68,8 +70,49 @@ def publish_browser_action(r: redis.Redis, job_id: str, action: str, **extra):
     r.publish(f"graby:events:{job_id}", json.dumps(payload))
 
 
+def publish_debug_usage(r: redis.Redis, job_id: str, label: str):
+    if not is_debug_enabled():
+        drain_usage_events()
+        return
+
+    events = drain_usage_events()
+    if not events:
+        return
+
+    prompt_tokens = sum(int(event.get("prompt_tokens") or 0) for event in events)
+    completion_tokens = sum(int(event.get("completion_tokens") or 0) for event in events)
+    total_tokens = sum(int(event.get("total_tokens") or 0) for event in events)
+    costs = [float(event["cost"]) for event in events if event.get("cost") is not None]
+    details = ", ".join(
+        f"{event['model']}: {int(event.get('total_tokens') or 0)} tokens"
+        for event in events
+    )
+    message = (
+        f"[DEBUG] {label}: {total_tokens} tokens "
+        f"(entrada {prompt_tokens}, salida {completion_tokens})"
+    )
+    if costs:
+        message += f" | costo estimado USD {sum(costs):.6f}"
+    publish(
+        r,
+        job_id,
+        "DEBUG_LLM_USAGE",
+        message,
+        debug=True,
+        usage={
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+            "cost": sum(costs) if costs else None,
+            "requests": len(events),
+            "details": details,
+        },
+    )
+
+
 def process_job(job: dict):
     r = get_redis()
+    drain_usage_events()
     job_id = job["job_id"]
     email = job["email"]
     password = job["password"]
@@ -83,11 +126,15 @@ def process_job(job: dict):
         publish(r, job_id, "INTERPRETING_REQUEST", "Interpretando tu pedido...")
         try:
             products = generate_shopping_list_from_prompt(message)
+            publish_debug_usage(r, job_id, "interpretación del pedido")
         except httpx.ConnectError:
             publish(
                 r, job_id, "FAILED",
-                "No se pudo conectar al servicio de IA (Ollama). Verificá que esté disponible e intentá nuevamente.",
+                "No se pudo conectar al servicio de IA (OpenRouter). Verificá la API key e intentá nuevamente.",
             )
+            return
+        except LLMServiceError as exc:
+            publish(r, job_id, "FAILED", str(exc))
             return
         except ValueError as exc:
             publish(r, job_id, "FAILED", str(exc))
@@ -173,6 +220,7 @@ def process_job(job: dict):
                 query = task["query"]
                 quantity = task["quantity"]
 
+                drain_usage_events()
                 publish(r, job_id, "SEARCHING_PRODUCTS", f'Buscando "{query}"...')
                 publish_browser_action(r, job_id, "search", query=query, url=page.url)
 
@@ -181,6 +229,7 @@ def process_job(job: dict):
                     result = add_product_with_result(
                         page, quantity, requested_product=query
                     )
+                    publish_debug_usage(r, job_id, f'búsqueda "{query}"')
                     publish_browser_action(
                         r,
                         job_id,

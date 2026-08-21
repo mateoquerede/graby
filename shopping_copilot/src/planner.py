@@ -1,15 +1,15 @@
 """
 Planner module
 
-Uses Ollama AI to convert product names into optimized search queries
+Uses an LLM to convert product names into optimized search queries
 for supermarket shopping, maintaining exact quantities.
 """
 
 import json
 import re
-import ollama
-from shopping_copilot.src.config import debug_print, OLLAMA_MODEL, OLLAMA_NUM_PREDICT
+from shopping_copilot.src.config import debug_print, LLM_MAX_TOKENS
 from shopping_copilot.src.ai_guard import validate_ai_input, validate_item_limits
+from shopping_copilot.src.llm_service import LLMService
 
 
 NUMBER_WORDS = {
@@ -82,7 +82,7 @@ def singularize_spanish_query(query):
 def extract_json(text):
     """
     Extract the first valid JSON array from the model response.
-    Works even if Ollama adds text before or after.
+    Works even if the model adds text before or after.
     """
     candidates = re.findall(r"\[[\s\S]*?\]", text)
 
@@ -103,9 +103,10 @@ def _extract_quantity_from_text(text):
     if not text:
         return 1
 
-    match = re.search(r"\b(\d+)\b", text)
+    match = re.search(r"\b(\d+(?:[.,]\d+)?)", text)
     if match:
-        return max(1, int(match.group(1)))
+        value = float(match.group(1).replace(",", "."))
+        return max(1, value)
 
     for word, value in NUMBER_WORDS.items():
         if re.search(rf"\b{word}\b", text, flags=re.IGNORECASE):
@@ -138,8 +139,22 @@ def parse_user_prompt_to_items(user_prompt):
 
         quantity = _extract_quantity_from_text(part)
         phrase = _clean_product_phrase(part)
-        phrase = re.sub(rf"^(?:{ '|'.join(re.escape(v) for v in NUMBER_WORDS) }|\d+)\s+", "", phrase, flags=re.IGNORECASE)
+        phrase = re.sub(
+            rf"^(?:{ '|'.join(re.escape(v) for v in NUMBER_WORDS) }|\d+(?:[.,]\d+)?"
+            rf"\s*(?:kg|kgs|kilo(?:s)?|g|gr|gramo(?:s)?|l|lt|lts|litro(?:s)?|"
+            rf"ml|unidad(?:es)?|pack|caja(?:s)?|botella(?:s)?)?)\s*",
+            "",
+            phrase,
+            flags=re.IGNORECASE,
+        )
         phrase = _clean_product_phrase(phrase)
+        phrase = re.sub(
+            r"\s+\d+(?:[.,]\d+)?\s*(?:kg|kgs|kilo(?:s)?|g|gr|gramo(?:s)?|"
+            r"l|lt|lts|litro(?:s)?|ml)\b$",
+            "",
+            phrase,
+            flags=re.IGNORECASE,
+        ).strip()
         phrase = singularize_spanish_query(phrase)
 
         if not phrase:
@@ -239,8 +254,7 @@ PRODUCTS:
 {json.dumps(products, ensure_ascii=False)}
 """
 
-    response = ollama.chat(
-        model=OLLAMA_MODEL,
+    raw = LLMService().complete_json(
         messages=[
             {
                 "role": "system",
@@ -251,13 +265,10 @@ PRODUCTS:
                 "content": prompt
             }
         ],
-        options={
-            "temperature": 0,
-            "top_p": 0.1
-        }
+        max_tokens=LLM_MAX_TOKENS,
+        temperature=0,
+        top_p=0.1,
     )
-
-    raw = response["message"]["content"].strip()
 
     debug_print("\n🧠 Planner response:")
     debug_print(raw)
@@ -301,8 +312,7 @@ def generate_shopping_list_from_prompt(user_prompt):
     {user_prompt}
     """
 
-    response = ollama.chat(
-        model=OLLAMA_MODEL,
+    raw = LLMService().complete_json(
         messages=[
             {
                 "role": "system",
@@ -313,14 +323,10 @@ def generate_shopping_list_from_prompt(user_prompt):
                 "content": prompt
             }
         ],
-        options={
-            "temperature": 0,
-            "top_p": 0.1,
-            "num_predict": OLLAMA_NUM_PREDICT,
-        }
+        max_tokens=LLM_MAX_TOKENS,
+        temperature=0,
+        top_p=0.1,
     )
-
-    raw = response["message"]["content"].strip()
 
     debug_print("\n🧠 Shopping list generation response:")
     debug_print(raw)

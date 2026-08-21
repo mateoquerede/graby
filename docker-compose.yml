@@ -1,23 +1,4 @@
 services:
-  ollama:
-    image: ollama/ollama:latest
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-      - ./ollama-entrypoint.sh:/entrypoint.sh:ro
-    environment:
-      OLLAMA_HOST: 0.0.0.0:11434
-      OLLAMA_MODEL: llama3.2
-    entrypoint: ["/bin/sh", "/entrypoint.sh"]
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 120s
-
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -53,8 +34,9 @@ services:
       - "6080:6080"
     environment:
       REDIS_URL: redis://redis:6379
-      OLLAMA_HOST: http://ollama:11434
-      OLLAMA_MODEL: llama3.2
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL}
+      OPENROUTER_FALLBACK_MODELS: ${OPENROUTER_FALLBACK_MODELS:-}
       DISPLAY: :99
       NOVNC_PORT: 6080
       VNC_PORT: 5900
@@ -67,8 +49,6 @@ services:
       - ./shopping_copilot:/app/shopping_copilot
     depends_on:
       redis:
-        condition: service_healthy
-      ollama:
         condition: service_healthy
 
   frontend:
@@ -91,6 +71,3 @@ services:
       - /app/.next
     depends_on:
       - backend
-
-volumes:
-  ollama_data:

@@ -1,5 +1,4 @@
 {
-  "modelo_ollama": "llama3",
   "reglas_generales": {
     "evitar_texto": [
     ],

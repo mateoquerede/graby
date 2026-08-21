@@ -7,9 +7,9 @@ based on rules, blocked items, and pricing criteria.
 
 import json
 import re
-import ollama
-from shopping_copilot.src.config import debug_print, OLLAMA_MODEL, OLLAMA_NUM_PREDICT
+from shopping_copilot.src.config import debug_print, LLM_MAX_TOKENS
 from shopping_copilot.src.ai_guard import limit_candidates, validate_ai_input
+from shopping_copilot.src.llm_service import LLMService
 
 
 def _normalize_for_match(value):
@@ -47,16 +47,16 @@ def _semantic_match_score(requested_product, candidate_name):
 
 
 def extract_json_object(raw):
-    matches = re.finditer(r"\{.*?\}", raw, re.DOTALL)
-
-    for m in matches:
-        txt = m.group(0)
+    decoder = json.JSONDecoder()
+    for start, char in enumerate(raw):
+        if char != "{":
+            continue
         try:
-            obj = json.loads(txt)
+            obj, _ = decoder.raw_decode(raw[start:])
             if "selected_plu" in obj:
                 return obj
-        except Exception:
-            pass
+        except (json.JSONDecodeError, TypeError):
+            continue
 
     return {
         "selected_plu": None,
@@ -82,8 +82,6 @@ def evaluate_product_with_ai(requested_product, quantity, candidates, blocked, r
     requested_product = validate_ai_input(
         requested_product, max_chars=120, require_shopping_terms=False
     )
-    model_name = rules.get("ollama_model", OLLAMA_MODEL)
-
     blocked_plu = set(str(x) for x in blocked.get("plu", []))
 
     filtered_candidates = [
@@ -152,50 +150,71 @@ Exact format:
 }}
 """
 
-    r = ollama.chat(
-        model=model_name,
-        messages=[
+    valid_values = set(str(c["plu"]) for c in filtered_candidates)
+    best_candidate = filtered_candidates[0]
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "IMPORTANT: output exactly one JSON object and nothing else. "
+                "Never output analysis or a thinking process. "
+                'selected_plu is mandatory and must be a string from the candidate list. '
+                'Use this exact shape: {"selected_plu":"123456","reason":"breve motivo"}. '
+                "reason siempre en español argentino. " + EVALUATOR_RULES
+            )
+        },
+        {"role": "user", "content": prompt},
+    ]
+    service = LLMService()
+    decision = {}
+    selected = None
+
+    for attempt in range(3):
+        raw = service.complete_json(
+            messages=messages,
+            max_tokens=max(LLM_MAX_TOKENS, 512),
+            temperature=0,
+        )
+        debug_print("\n🧠 AI evaluation:")
+        debug_print(raw)
+        decision = extract_json_object(raw)
+        selected = decision.get("selected_plu")
+        if isinstance(selected, dict):
+            selected = selected.get("plu")
+        if selected is not None:
+            selected = str(selected)
+        if selected in valid_values:
+            break
+        messages = [
             {
                 "role": "system",
-                "content": "Responde solo JSON valido. No expliques. No uses markdown. reason siempre en español argentino. " + EVALUATOR_RULES
+                "content": (
+                    "DEVOLVE UNICAMENTE JSON VALIDO, SIN RAZONAMIENTO NI TEXTO. "
+                    'Formato exacto: {"selected_plu":"PLU_DE_CANDIDATO","reason":"breve"}. '
+                    "selected_plu es obligatorio y debe ser uno de los PLUs candidatos."
+                ),
             },
             {
                 "role": "user",
-                "content": prompt
-            }
-        ],
-        options={
-            "temperature": 0,
-            "num_predict": min(OLLAMA_NUM_PREDICT, 180)
-        }
-    )
-
-    raw = r["message"]["content"]
-
-    debug_print("\n🧠 AI evaluation:")
-    debug_print(raw)
-
-    decision = extract_json_object(raw)
-
-    selected = decision.get("selected_plu")
-
-    if selected is not None:
-        selected = str(selected)
-
-    valid_values = set(str(c["plu"]) for c in filtered_candidates)
+                "content": (
+                    f"Intento inválido anterior: {raw[:1000]}\n"
+                    f"Elegí un PLU de esta lista: {sorted(valid_values)}\n"
+                    f"Producto solicitado: {requested_product}\n"
+                    "Respondé solamente el objeto JSON."
+                ),
+            },
+        ]
 
     if selected not in valid_values:
-        return {
-            "selected_plu": None,
-            "reason": f"AI selected an invalid or blocked PLU: {selected}"
-        }
+        raise ValueError(
+            "La AI no devolvió un selected_plu válido después de 3 intentos."
+        )
 
     selected_candidate = next(
         (c for c in filtered_candidates if str(c["plu"]) == selected),
         None
     )
-
-    best_candidate = filtered_candidates[0]
 
     if selected_candidate and best_candidate:
         selected_score = _semantic_match_score(requested_product, selected_candidate.get("name") or "")

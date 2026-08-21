@@ -22,7 +22,7 @@ Visit [heygraby.com](https://heygraby.com).
 | Frontend | Next.js 14, Tailwind CSS |
 | Backend / API | FastAPI (Python) |
 | Queue | Redis |
-| Worker | Python, Playwright, Ollama, Xvfb, noVNC |
+| Worker | Python, Playwright, OpenRouter, Xvfb, noVNC |
 
 ---
 
@@ -31,16 +31,13 @@ Visit [heygraby.com](https://heygraby.com).
 ### Prerequisites
 
 - Docker & Docker Compose
-- [Ollama](https://ollama.com) running locally with `llama3` pulled
-
-```bash
-ollama pull llama3
-```
+- An [OpenRouter](https://openrouter.ai) API key
 
 ### Start everything
 
 ```bash
 cp .env.example .env
+# Set OPENROUTER_API_KEY in .env before starting
 docker compose up --build
 ```
 
@@ -86,7 +83,10 @@ npm run dev
 
 - Credentials are **never** stored in any database, log, or analytics tool.
 - Each automation job runs in an isolated browser context that is destroyed after completion.
-- Ollama receives only the product descriptions — never credentials.
+- OpenRouter receives only the product descriptions — never credentials.
+- Configure `OPENROUTER_MODEL` with a free model first. Add paid model IDs to
+  `OPENROUTER_FALLBACK_MODELS` (comma-separated) to use them when the primary
+  model is unavailable or rate-limited.
 - Redis stores only job status and events, not credentials.
 
 ---
