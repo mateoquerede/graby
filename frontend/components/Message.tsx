@@ -24,15 +24,6 @@ export default function Message({ msg }: Props) {
     );
   }
 
-  if (msg.role === "action") {
-    return (
-      <div className="flex items-start gap-2 text-sm text-indigo-500 pl-2">
-        <span>{msg.icon ?? "•"}</span>
-        <span>{msg.text}</span>
-      </div>
-    );
-  }
-
   // assistant
   return (
     <div className="flex items-start gap-2">

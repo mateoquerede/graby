@@ -1,7 +1,7 @@
 """
 Worker entry point.
 
-Polls Redis for purchase jobs, runs the Playwright automation,
+Polls Redis for purchase jobs, runs the Coto HTTP APIs,
 and publishes status events back to Redis pub/sub so the
 backend can stream them to the frontend via SSE/WebSocket.
 
@@ -24,7 +24,6 @@ import traceback
 
 import httpx
 import redis
-from playwright.sync_api import sync_playwright
 
 # Resolve imports: worker/ + shopping_copilot/ from repo root
 WORKER_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -36,17 +35,13 @@ from shopping_copilot.src.planner import generate_shopping_list_from_prompt, pla
 from shopping_copilot.src.llm_service import LLMServiceError, drain_usage_events
 from shopping_copilot.src.config import is_debug_enabled
 from shopping_copilot.src.search import search_product
-from shopping_copilot.src.cart import clear_cart, should_clear_cart
 
 from coto.login import login_with_credentials
 from coto.add_product import add_product_with_result
+from coto.client import CotoClient
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 QUEUE_KEY = "graby:jobs"
-MONITOR_HOLD_MS = int(os.environ.get("MONITOR_HOLD_MS", "5000"))
-
-CART_URL = "https://www.cotodigital.com.ar/sitios/cdigi/carrito"
-
 
 def get_redis():
     return redis.from_url(REDIS_URL, decode_responses=True)
@@ -64,11 +59,6 @@ def publish(r: redis.Redis, job_id: str, status: str, message: str, **extra):
             "last_event": json.dumps(payload),
         },
     )
-
-def publish_browser_action(r: redis.Redis, job_id: str, action: str, **extra):
-    payload = {"type": "browser_action", "action": action, **extra}
-    r.publish(f"graby:events:{job_id}", json.dumps(payload))
-
 
 def publish_debug_usage(r: redis.Redis, job_id: str, label: str):
     if not is_debug_enabled():
@@ -117,9 +107,6 @@ def process_job(job: dict):
     email = job["email"]
     password = job["password"]
     message = job["message"]
-    monitor_raw = job.get("monitor_playwright")
-    monitor_playwright = True if monitor_raw is None else bool(monitor_raw)
-
     publish(r, job_id, "STARTING", "Iniciando el asistente de compras...")
 
     try:
@@ -152,65 +139,22 @@ def process_job(job: dict):
             items=[t["query"] for t in tasks],
         )
 
-        with sync_playwright() as p:
-            browser = p.chromium.launch(
-                headless=not monitor_playwright,
-                slow_mo=250 if monitor_playwright else 0,
-                args=[
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--ozone-platform=x11",
-                    "--window-size=1360,760",
-                ],
-                env={**os.environ, "DISPLAY": os.environ.get("DISPLAY", ":99")},
-            )
-            context = browser.new_context(viewport=None if monitor_playwright else {"width": 1360, "height": 760})
-
-            if not monitor_playwright:
-                context.route(
-                    "**/*",
-                    lambda route: route.abort()
-                    if route.request.resource_type in {"image", "font", "media"}
-                    else route.continue_(),
-                )
-
-            page = context.new_page()
-            page.set_default_timeout(15000)
-            page.set_default_navigation_timeout(45000)
-            page.goto("https://www.cotodigital.com.ar", wait_until="domcontentloaded")
-            if monitor_playwright:
-                page.bring_to_front()
-            publish_browser_action(r, job_id, "navigate", url=page.url, target="home")
-            if monitor_playwright:
-                publish(
-                    r,
-                    job_id,
-                    "LIVE_MONITOR_READY",
-                    "Monitor en vivo activo.",
-                    stream_type="vnc",
-                )
-                page.wait_for_timeout(1500)
-
+        client = CotoClient()
+        try:
+            client.bootstrap()
             publish(r, job_id, "AUTHENTICATING", "Iniciando sesión...")
 
             try:
-                login_with_credentials(page, email, password)
+                login_with_credentials(client, email, password)
             except ValueError:
                 publish(
                     r, job_id, "FAILED",
                     "No pude iniciar sesión. Verificá tus credenciales e intentá nuevamente.",
                 )
-                context.close()
-                browser.close()
                 return
 
             publish(r, job_id, "AUTHENTICATED", "Sesión iniciada correctamente.")
-            publish_browser_action(r, job_id, "login", url=page.url)
-
-            if should_clear_cart(message):
-                clear_cart(page)
-                publish_browser_action(r, job_id, "clear_cart", url=page.url)
+            client.ensure_delivery_address()
 
             selected_items = []
 
@@ -222,35 +166,19 @@ def process_job(job: dict):
 
                 drain_usage_events()
                 publish(r, job_id, "SEARCHING_PRODUCTS", f'Buscando "{query}"...')
-                publish_browser_action(r, job_id, "search", query=query, url=page.url)
 
                 try:
-                    search_product(page, query)
+                    search_payload = search_product(client, query)
                     result = add_product_with_result(
-                        page, quantity, requested_product=query
+                        client, search_payload, quantity, requested_product=query
                     )
                     publish_debug_usage(r, job_id, f'búsqueda "{query}"')
-                    publish_browser_action(
-                        r,
-                        job_id,
-                        "click",
-                        target="Agregar al carrito",
-                        query=query,
-                    )
 
                     if result:
                         publish(
                             r, job_id, "PRODUCT_ADDED",
                             f"Agregué {quantity}x {result['name']} al carrito.",
                             product=result,
-                        )
-                        publish_browser_action(
-                            r,
-                            job_id,
-                            "product_added",
-                            product=result["name"],
-                            quantity=quantity,
-                            url=page.url,
                         )
                         selected_items.append(result)
                     else:
@@ -266,16 +194,10 @@ def process_job(job: dict):
                         f'⚠️ Error buscando "{query}": {exc}',
                         requested=query,
                     )
-
-            page.goto(CART_URL, wait_until="domcontentloaded", timeout=45000)
-            checkout_url = page.url
-            if monitor_playwright:
-                page.bring_to_front()
-                page.wait_for_timeout(MONITOR_HOLD_MS)
-            publish_browser_action(r, job_id, "open_cart", url=checkout_url)
-
-            context.close()
-            browser.close()
+            checkout_url = client.cart_url()
+            checkout_url = client.cart_url()
+        finally:
+            client.close()
 
         total = sum(
             (item.get("price", 0) or 0) * item.get("quantity", 1)

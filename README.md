@@ -22,7 +22,7 @@ Visit [heygraby.com](https://heygraby.com).
 | Frontend | Next.js 14, Tailwind CSS |
 | Backend / API | FastAPI (Python) |
 | Queue | Redis |
-| Worker | Python, Playwright, OpenRouter, Xvfb, noVNC |
+| Worker | Python, httpx, Coto APIs, OpenRouter |
 
 ---
 
@@ -32,6 +32,7 @@ Visit [heygraby.com](https://heygraby.com).
 
 - Docker & Docker Compose
 - An [OpenRouter](https://openrouter.ai) API key
+- Network access to Coto Digital (the worker discovers the search key automatically)
 
 ### Start everything
 
@@ -49,7 +50,6 @@ This compose setup runs in development mode with hot reload:
 - Frontend → http://localhost:3000
 - API → http://localhost:8000
 - API docs → http://localhost:8000/docs
-- Live browser (noVNC) → http://localhost:6080/vnc.html
 
 ### Run without Docker
 
@@ -82,7 +82,7 @@ npm run dev
 ## Security
 
 - Credentials are **never** stored in any database, log, or analytics tool.
-- Each automation job runs in an isolated browser context that is destroyed after completion.
+- Each job uses an isolated in-memory HTTP session that is closed after completion.
 - OpenRouter receives only the product descriptions — never credentials.
 - Configure `OPENROUTER_MODEL` with a free model first. Add paid model IDs to
   `OPENROUTER_FALLBACK_MODELS` (comma-separated) to use them when the primary
@@ -97,7 +97,7 @@ npm run dev
 graby/
 ├── frontend/          # Next.js chat UI
 ├── backend/           # FastAPI — job creation, SSE streaming
-├── worker/            # Playwright worker + Coto adapters
+├── worker/            # HTTP worker + Coto API adapters
 │   └── coto/
 ├── shopping_copilot/  # Search, planner, evaluator, cart helpers
 ├── docker-compose.yml

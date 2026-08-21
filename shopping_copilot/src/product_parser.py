@@ -293,3 +293,62 @@ def extract_candidates(page, quantity):
             print("⚠️ Error reading candidate:", e)
 
     return candidates
+
+
+def extract_api_candidates(payload, quantity):
+    """Normalize Coto's product-search JSON to the evaluator's candidate shape."""
+    response = payload.get("response", {}) if isinstance(payload, dict) else {}
+    products = response.get("results", []) if isinstance(response, dict) else []
+    candidates = []
+    for index, result in enumerate(products):
+        if not isinstance(result, dict):
+            continue
+        product = result.get("data", result)
+        if not isinstance(product, dict):
+            continue
+        name = (
+            product.get("sku_display_name")
+            or product.get("product_display_name")
+            or product.get("value")
+            or product.get("sku_description")
+            or ""
+        )
+        price = parse_float_price(
+            product.get("product_list_price", product.get("price"))
+        )
+        unit = parse_unit(name, product.get("product_format", ""))
+        promos = extract_promos(" ".join(
+            str(discount) for discount in product.get("discounts", [])
+        ))
+        product_id = product.get("id") or product.get("product_id")
+        sku_id = product.get("sku_id") or product.get("skuId")
+        plu = str(product.get("sku_plu") or product.get("plu") or "").strip()
+        if not plu and product_id:
+            match = re.search(r"prod0*([0-9]+)", str(product_id))
+            plu = match.group(1) if match else ""
+        if not plu or not product_id or not sku_id:
+            continue
+
+        effective_total_price = calculate_effective_price(price, quantity, promos)
+        normalized_price = (
+            effective_total_price / quantity / unit["amount"]
+            if effective_total_price is not None and unit["amount"] > 0
+            else None
+        )
+        candidates.append({
+            "index": index,
+            "plu": plu,
+            "item_id": product_id,
+            "product_id": product_id,
+            "sku_id": sku_id,
+            "name": name,
+            "price": price,
+            "unit_amount": unit["amount"],
+            "unit": unit["unit"],
+            "promos": promos,
+            "coto_normalized_price": None,
+            "effective_total_price": effective_total_price,
+            "effective_price_per_normalized_unit": normalized_price,
+            "raw_text": name[:1200],
+        })
+    return candidates

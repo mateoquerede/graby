@@ -8,7 +8,7 @@ export interface CartItem {
 
 export type NonSummaryMessage =
   | { role: "assistant" | "user"; text: string }
-  | { role: "status" | "action"; text: string; icon?: string };
+  | { role: "status"; text: string; icon?: string };
 
 export type ChatMessage =
   | NonSummaryMessage

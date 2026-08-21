@@ -56,7 +56,6 @@ class PurchaseRequest(BaseModel):
     message: str
     email: str
     password: str
-    monitor_playwright: bool = False
 
     @field_validator("message")
     @classmethod
@@ -96,7 +95,6 @@ async def create_purchase(body: PurchaseRequest):
             "email": body.email,
             "password": body.password,
             "message": body.message,
-            "monitor_playwright": body.monitor_playwright,
         }
     )
 
@@ -108,7 +106,7 @@ async def create_purchase(body: PurchaseRequest):
     await r.rpush(QUEUE_KEY, job_payload)
     await r.aclose()
 
-    return {"job_id": job_id, "status": "PENDING", "monitor_playwright": body.monitor_playwright}
+    return {"job_id": job_id, "status": "PENDING"}
 
 
 @app.get("/api/purchases/{job_id}")

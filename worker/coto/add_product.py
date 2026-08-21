@@ -1,62 +1,49 @@
-"""
-add_product variant that returns a structured result dict
-instead of only printing to stdout.
-"""
+"""Product selection and cart operations using Coto's HTTP APIs."""
 
-from shopping_copilot.src.evaluator import evaluate_product_with_ai
+import json
+
 from shopping_copilot.src.config import BLOCKED, RULES
-from shopping_copilot.src.product_parser import extract_candidates
-from shopping_copilot.src.add_product import add_by_plu
+from shopping_copilot.src.config import debug_print
+from shopping_copilot.src.evaluator import evaluate_product_with_ai
+from shopping_copilot.src.product_parser import extract_api_candidates
 
 
-def add_product_with_result(page, quantity: int, requested_product: str = "") -> dict | None:
-    """
-    Search results are already loaded. Sort, evaluate, add to cart,
-    and return a result dict suitable for the API response.
-    Returns None if no suitable product was found.
-    """
-    # Mantener el orden natural de resultados del buscador para priorizar
-    # coincidencia semántica antes que el producto más barato.
-    candidates = extract_candidates(page, quantity)
-
+def add_product_with_result(client, payload, quantity: int, requested_product: str = ""):
+    debug_print(
+        "Coto product search response:",
+        json.dumps(payload, ensure_ascii=False)[:12000],
+    )
+    candidates = extract_api_candidates(payload, quantity)
+    debug_print(f"Coto normalized candidates: {len(candidates)}")
     if not candidates:
         return None
 
     if len(candidates) == 1:
-        c = candidates[0]
-        add_by_plu(page, c["plu"], quantity)
-        return {
-            "requested": requested_product,
-            "name": c.get("name", c["plu"]),
-            "plu": c["plu"],
-            "quantity": quantity,
-            "price": c.get("price"),
-            "reason": "Único resultado disponible.",
-        }
+        selected = candidates[0]
+        reason = "Único resultado disponible."
+    else:
+        decision = evaluate_product_with_ai(
+            requested_product=requested_product or "producto",
+            quantity=quantity,
+            candidates=candidates,
+            blocked=BLOCKED,
+            rules=RULES,
+        )
+        selected_plu = str(decision.get("selected_plu") or "")
+        selected = next(
+            (candidate for candidate in candidates if candidate["plu"] == selected_plu),
+            None,
+        )
+        if not selected:
+            return None
+        reason = decision.get("reason", "")
 
-    decision = evaluate_product_with_ai(
-        requested_product=requested_product or "producto",
-        quantity=quantity,
-        candidates=candidates,
-        blocked=BLOCKED,
-        rules=RULES,
-    )
-
-    selected_plu = decision.get("selected_plu")
-    if not selected_plu:
-        return None
-
-    selected = next((c for c in candidates if str(c["plu"]) == str(selected_plu)), None)
-    if not selected:
-        return None
-
-    add_by_plu(page, selected_plu, quantity)
-
+    client.add_item(selected["product_id"], selected["sku_id"], quantity)
     return {
         "requested": requested_product,
-        "name": selected.get("name", selected_plu),
-        "plu": selected_plu,
+        "name": selected["name"] or selected["plu"],
+        "plu": selected["plu"],
         "quantity": quantity,
-        "price": selected.get("price"),
-        "reason": decision.get("reason", ""),
+        "price": selected["price"],
+        "reason": reason,
     }
