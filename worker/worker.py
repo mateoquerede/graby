@@ -34,7 +34,7 @@ sys.path.insert(0, WORKER_DIR)
 
 from shopping_copilot.src.planner import generate_shopping_list_from_prompt, plan
 from shopping_copilot.src.search import search_product
-from shopping_copilot.src.cart import clear_cart
+from shopping_copilot.src.cart import clear_cart, should_clear_cart
 
 from coto.login import login_with_credentials
 from coto.add_product import add_product_with_result
@@ -88,6 +88,9 @@ def process_job(job: dict):
                 r, job_id, "FAILED",
                 "No se pudo conectar al servicio de IA (Ollama). Verificá que esté disponible e intentá nuevamente.",
             )
+            return
+        except ValueError as exc:
+            publish(r, job_id, "FAILED", str(exc))
             return
         tasks = plan(products)
 
@@ -158,8 +161,9 @@ def process_job(job: dict):
             publish(r, job_id, "AUTHENTICATED", "Sesión iniciada correctamente.")
             publish_browser_action(r, job_id, "login", url=page.url)
 
-            clear_cart(page)
-            publish_browser_action(r, job_id, "clear_cart", url=page.url)
+            if should_clear_cart(message):
+                clear_cart(page)
+                publish_browser_action(r, job_id, "clear_cart", url=page.url)
 
             selected_items = []
 

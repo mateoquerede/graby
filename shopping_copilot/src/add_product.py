@@ -6,86 +6,217 @@ Handles adding products to the cart on Coto Digital website.
 
 from shopping_copilot.src.evaluator import evaluate_product_with_ai
 from shopping_copilot.src.config import BLOCKED, RULES, debug_print
-from shopping_copilot.src.search import sort_by_lowest_price
 from shopping_copilot.src.product_parser import extract_candidates
 
 
-def click_plus_by_item_id(page, item_id, times):
-    for _ in range(times):
-        retries = 0
-        while True:
-            result = page.evaluate(
-                """
-                (itemId) => {
-                    const card = document.querySelector(`[data-cnstrc-item-id="${itemId}"]`);
-                    if (!card) return { ok:false, reason:"card_not_found" };
+def handle_coto_modal(page):
+    """Accept confirmation dialogs that block product addition (guest/login and address prompts)."""
+    try:
+        page.wait_for_timeout(300)
+        selectors = [
+            "dialog",
+            "[role='dialog']",
+            ".modal",
+            ".modal-dialog",
+            ".popup",
+            ".overlay",
+        ]
 
-                    const spinners = [...card.querySelectorAll(".input-spinner")];
-                    if (!spinners.length) return { ok:false, reason:"spinner_not_found" };
-
-                    const spinner =
-                        spinners.find(s => getComputedStyle(s).display !== "none") ||
-                        spinners[0];
-
-                    const buttons = spinner.querySelectorAll("button");
-                    if (buttons.length < 2) return { ok:false, reason:"plus_not_found" };
-
-                    const input = spinner.querySelector("input");
-                    const before = input ? Number(input.value) : null;
-
-                    buttons[1].click();
-
-                    const after = input ? input.value : null;
-
-                    return {
-                        ok: true,
-                        before,
-                        after
-                    };
-                }
-                """,
-                item_id,
-            )
-
-            if result.get("ok"):
-                break
-
-            if result.get("reason") in {"card_not_found", "spinner_not_found", "plus_not_found"} and retries < 12:
-                retries += 1
-                page.wait_for_timeout(150)
+        for selector in selectors:
+            modal = page.locator(selector).first
+            if modal.count() == 0 or not modal.is_visible(timeout=400):
                 continue
 
-            raise Exception(f"Unable to click +: {result}")
+            text = (modal.inner_text(timeout=1000) or "").lower()
+            if not any(keyword in text for keyword in [
+                "aceptar",
+                "cancelar",
+                "ingresá",
+                "iniciar sesión",
+                "continuar como invitado",
+                "dirección",
+                "entregar",
+                "enviar",
+                "confirmar",
+            ]):
+                continue
 
-        debug_print("➕ result:", result)
+            for button_selector in [
+                "button:has-text('Aceptar')",
+                "button:has-text('Confirmar')",
+                "button:has-text('OK')",
+                "[role='button']:has-text('Aceptar')",
+                "[role='button']:has-text('Confirmar')",
+            ]:
+                button = page.locator(button_selector).first
+                if button.count() > 0 and button.is_visible(timeout=500):
+                    button.click(timeout=3000)
+                    page.wait_for_timeout(1200)
+                    return True
 
-        before = result.get("before")
-        if isinstance(before, (int, float)):
-            expected = int(before) + 1
-            page.wait_for_function(
-                """
-                ([itemId, expectedValue]) => {
-                    const card = document.querySelector(`[data-cnstrc-item-id="${itemId}"]`);
-                    if (!card) return false;
-                    const spinner =
-                        [...card.querySelectorAll('.input-spinner')].find(s => getComputedStyle(s).display !== 'none') ||
-                        card.querySelector('.input-spinner');
-                    if (!spinner) return false;
-                    const input = spinner.querySelector('input');
-                    return input && Number(input.value) === expectedValue;
+            return True
+    except Exception as exc:
+        debug_print(f"⚠️ No modal to handle or it was already dismissed: {exc}")
+
+    return False
+
+
+# Coto renders a *second*, hidden copy of a product card inside the floating
+# cart preview (`cart-float` / `.dropdown-carrito`) as soon as anything is
+# added to the cart. That clone carries the exact same
+# `data-cnstrc-item-id` as the real, visible search-result card
+# (`constructor-result-item`). A plain `querySelector`/`.first` lookup can
+# therefore silently resolve to the wrong (hidden) node depending on DOM
+# insertion order, so every helper below explicitly resolves the real,
+# visible card first and only falls back to any match as a last resort.
+_RESOLVE_REAL_CARD_JS = """
+    const candidates = [...document.querySelectorAll(`[data-cnstrc-item-id="${itemId}"]`)];
+    if (!candidates.length) return null;
+    const real = candidates.find(el => !el.closest('cart-float, .dropdown-carrito, [id^="notificacion"]'));
+    return real || candidates[0];
+"""
+
+
+def click_plus_by_item_id(page, item_id, target_quantity):
+    target_quantity = float(target_quantity)
+    if target_quantity <= 0:
+        return
+
+    stable_reads = 0
+
+    for _ in range(120):
+        state = page.evaluate(
+            r"""
+            (itemId) => {
+                const resolveRealCard = (itemId) => {
+                    %s
+                };
+                const card = resolveRealCard(itemId);
+                if (!card) return { ok: false, reason: "card_not_found" };
+
+                const selectors = [
+                    '.input-spinner',
+                    '.quantity-selector',
+                    '[class*="spinner"]',
+                    '[class*="qty"]',
+                    '[class*="quantity"]'
+                ];
+
+                let spinner = null;
+                for (const selector of selectors) {
+                    spinner = card.querySelector(selector);
+                    if (spinner) break;
                 }
-                """,
-                arg=[item_id, expected],
-                timeout=3000,
-            )
-        else:
-            page.wait_for_timeout(250)
+                if (!spinner) return { ok: false, reason: "spinner_not_found" };
+
+                const input = spinner.querySelector('input');
+                if (input) {
+                    const value = Number(input.value || 0);
+                    return { ok: true, value, has_input: true };
+                }
+
+                const numbers = (spinner.textContent || '').match(/-?\d+(?:[.,]\d+)?/g);
+                if (numbers && numbers.length) {
+                    const last = numbers[numbers.length - 1].replace(',', '.');
+                    return { ok: true, value: Number(last), has_input: false };
+                }
+
+                const buttons = [...spinner.querySelectorAll('button')];
+                const plus = buttons.find(btn => {
+                    const text = (btn.textContent || '').trim();
+                    const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+                    const title = (btn.getAttribute('title') || '').toLowerCase();
+                    return text === '+' || text.includes('+') || aria.includes('sumar') || title.includes('sumar') || aria.includes('increase') || title.includes('increase');
+                });
+                if (!plus) return { ok: false, reason: 'plus_not_found' };
+                return { ok: true, value: 0, has_input: false, plus_present: true };
+            }
+            """
+            % _RESOLVE_REAL_CARD_JS,
+            item_id,
+        )
+
+        if not state.get("ok"):
+            if state.get("reason") in {"card_not_found", "spinner_not_found", "plus_not_found"}:
+                page.wait_for_timeout(150)
+                continue
+            raise Exception(f"Unable to read quantity state: {state}")
+
+        value = state.get("value")
+        if isinstance(value, (int, float)) and value >= target_quantity - 1e-6:
+            # Require the target to hold steady across a short settle window
+            # before trusting it: Coto's quantity update is not synchronous,
+            # so a value can briefly "look" correct and then snap back.
+            stable_reads += 1
+            if stable_reads >= 2:
+                return
+            page.wait_for_timeout(400)
+            continue
+
+        stable_reads = 0
+
+        clicked = page.evaluate(
+            """
+            (itemId) => {
+                const resolveRealCard = (itemId) => {
+                    %s
+                };
+                const card = resolveRealCard(itemId);
+                if (!card) return false;
+
+                const selectors = [
+                    '.input-spinner',
+                    '.quantity-selector',
+                    '[class*="spinner"]',
+                    '[class*="qty"]',
+                    '[class*="quantity"]'
+                ];
+
+                let spinner = null;
+                for (const selector of selectors) {
+                    spinner = card.querySelector(selector);
+                    if (spinner) break;
+                }
+                if (!spinner) return false;
+
+                const buttons = [...spinner.querySelectorAll('button')];
+                const plus = buttons.find(btn => {
+                    const text = (btn.textContent || '').trim();
+                    const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+                    const title = (btn.getAttribute('title') || '').toLowerCase();
+                    return text === '+' || text.includes('+') || aria.includes('sumar') || title.includes('sumar') || aria.includes('increase') || title.includes('increase');
+                }) || buttons[buttons.length - 1];
+
+                if (!plus || plus.disabled) return false;
+                plus.click();
+                return true;
+            }
+            """
+            % _RESOLVE_REAL_CARD_JS,
+            item_id,
+        )
+
+        if not clicked:
+            page.wait_for_timeout(150)
+            continue
+
+        # Give Angular's change detection / debounced persistence time to
+        # actually register the click before we read the value again.
+        page.wait_for_timeout(400)
+
+    raise Exception(f"Unable to reach quantity {target_quantity} for item {item_id}")
 
 
 def add_by_plu(page, selected_plu, quantity):
     selected_plu = str(selected_plu)
 
-    card = page.locator(
+    # Prefer the real, visible search-result card. Falls back to the plain
+    # attribute selector if the results grid isn't wrapped the usual way
+    # (e.g. a different page layout).
+    scoped_locator = page.locator(
+        f'constructor-result-item [data-cnstrc-item-id$="{selected_plu}"]'
+    ).first
+    card = scoped_locator if scoped_locator.count() > 0 else page.locator(
         f'[data-cnstrc-item-id$="{selected_plu}"]'
     ).first
 
@@ -125,22 +256,25 @@ def add_by_plu(page, selected_plu, quantity):
     btn.wait_for(state="visible", timeout=15000)
 
     btn.click()
+    handle_coto_modal(page)
 
-    print(f"✅ Added product PLU {selected_plu}")
+    # Let the "just added" state (and its floating cart clone) settle before
+    # we start reading/clicking the quantity spinner.
+    page.wait_for_timeout(500)
 
-    if quantity <= 1:
-        return
+    print(f"Producto agregado con PLU {selected_plu}")
 
-    click_plus_by_item_id(page, item_id, quantity - 1)
+    handle_coto_modal(page)
+    click_plus_by_item_id(page, item_id, quantity)
 
-    print(f"✅ added x{quantity}")
+    print(f"Agregado x{quantity}")
 
 
 def add_product(page, quantity, requested_product=None):
-    print(f"🛒 Adding {quantity} units")
+    print(f"Agregando {quantity} unidades")
 
-    sort_by_lowest_price(page)
-
+    # No forzamos ordenar por precio mínimo antes de evaluar: eso prioriza
+    # variantes baratas y ambiguas sobre equivalencia semántica.
     candidates = extract_candidates(page, quantity)
 
     if not candidates:
@@ -149,7 +283,7 @@ def add_product(page, quantity, requested_product=None):
     if len(candidates) == 1:
         selected_plu = candidates[0]["plu"]
 
-        print(f"✅ Single product found, selecting PLU {selected_plu}")
+        print(f"Un solo producto encontrado, seleccionando PLU {selected_plu}")
 
         add_by_plu(page, selected_plu, quantity)
 
@@ -169,8 +303,8 @@ def add_product(page, quantity, requested_product=None):
     selected_plu = decision.get("selected_plu")
 
     print(
-        f"🧠 Selected product: PLU {selected_plu}"
-        f" | reason: {decision.get('reason')}"
+        f"Producto seleccionado: PLU {selected_plu}"
+        f" | motivo: {decision.get('reason')}"
     )
 
     if not selected_plu:

@@ -34,7 +34,7 @@ export default function MonitorModal({ open, monitorEnabled, monitorUrl, onClose
       onClick={onClose}
     >
       <div
-        className="flex h-[95vh] w-[35vw] max-w-7xl flex-col rounded-2xl bg-white shadow-2xl"
+        className="flex h-[95vh] w-[95vw] max-w-7xl flex-col rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">

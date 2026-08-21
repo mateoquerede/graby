@@ -8,7 +8,47 @@ for supermarket shopping, maintaining exact quantities.
 import json
 import re
 import ollama
-from shopping_copilot.src.config import debug_print, OLLAMA_MODEL
+from shopping_copilot.src.config import debug_print, OLLAMA_MODEL, OLLAMA_NUM_PREDICT
+from shopping_copilot.src.ai_guard import validate_ai_input, validate_item_limits
+
+
+NUMBER_WORDS = {
+    "cero": 0,
+    "uno": 1,
+    "una": 1,
+    "un": 1,
+    "dos": 2,
+    "tres": 3,
+    "cuatro": 4,
+    "cinco": 5,
+    "seis": 6,
+    "siete": 7,
+    "ocho": 8,
+    "nueve": 9,
+    "diez": 10,
+    "once": 11,
+    "doce": 12,
+    "trece": 13,
+    "catorce": 14,
+    "quince": 15,
+    "veinte": 20,
+}
+
+SHOPPING_EXTRACTION_RULES = """
+Reglas de extracción obligatorias:
+- Cada elemento del JSON debe ser un producto real y completo.
+- La cantidad se toma del número que aparece junto al producto; si no hay número, la cantidad es 1.
+- No cambies la cantidad ni la conviertas en texto.
+- El query debe quedar en español y en singular.
+- No dividas marcas ni tipos de producto en dos items distintos.
+- 'fernet branca' es un único producto, no 'fernet' + 'branca'.
+- '1 pan' es [{"query":"pan","quantity":1}], no dos productos ni cantidad distinta.
+- '1 supremas' es [{"query":"suprema","quantity":1}].
+- '2 huevos' es [{"query":"huevo","quantity":2}].
+- Si hay varios productos, separalos solo por comas, punto y coma o por productos distintos reales.
+- No inventes marcas, sabores, tamaños ni elementos que no estén en el pedido.
+- No uses markdown, ni texto fuera del JSON.
+"""
 
 
 def singularize_spanish_query(query):
@@ -58,6 +98,61 @@ def extract_json(text):
     raise ValueError(f"No valid JSON array found in response:\n{text}")
 
 
+def _extract_quantity_from_text(text):
+    text = str(text or "").strip()
+    if not text:
+        return 1
+
+    match = re.search(r"\b(\d+)\b", text)
+    if match:
+        return max(1, int(match.group(1)))
+
+    for word, value in NUMBER_WORDS.items():
+        if re.search(rf"\b{word}\b", text, flags=re.IGNORECASE):
+            return max(1, value)
+
+    return 1
+
+
+def _clean_product_phrase(text):
+    text = str(text or "").strip()
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"^(?:un|una|uno|de|del|la|las|el|los|y|e)\s+", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"^(?:caja|cajas|paquete|paquetes|botella|botellas|pack)\s+de\s+", "", text, flags=re.IGNORECASE)
+    text = text.strip(" ,;.-_")
+    return text
+
+
+def parse_user_prompt_to_items(user_prompt):
+    text = str(user_prompt or "").strip()
+    if not text:
+        return []
+
+    parts = re.split(r"\s*(?:,|;|\n|\s\by\b|\s\be\b)+\s*", text, flags=re.IGNORECASE)
+    items = []
+
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+
+        quantity = _extract_quantity_from_text(part)
+        phrase = _clean_product_phrase(part)
+        phrase = re.sub(rf"^(?:{ '|'.join(re.escape(v) for v in NUMBER_WORDS) }|\d+)\s+", "", phrase, flags=re.IGNORECASE)
+        phrase = _clean_product_phrase(phrase)
+        phrase = singularize_spanish_query(phrase)
+
+        if not phrase:
+            continue
+
+        items.append({
+            "query": phrase,
+            "quantity": quantity,
+        })
+
+    return items
+
+
 def validate_plan(data):
     """
     Validate that each item has query and quantity.
@@ -84,13 +179,23 @@ def validate_plan(data):
         normalized_query = singularize_spanish_query(
             str(query).strip()
         )
+        normalized_query = re.sub(r"\s+", " ", normalized_query).strip()
+        if not normalized_query:
+            raise ValueError(f"Invalid query in item: {item}")
+
+        normalized_quantity = float(quantity)
+        if normalized_quantity < 1:
+            raise ValueError(f"Quantity must be >= 1 in item: {item}")
+
+        if normalized_quantity.is_integer():
+            normalized_quantity = int(normalized_quantity)
 
         validated.append({
             "query": normalized_query,
-            "quantity": int(float(quantity))
+            "quantity": normalized_quantity
         })
 
-    return validated
+    return validate_item_limits(validated)
 
 
 def plan(products):
@@ -109,6 +214,8 @@ def plan(products):
     prompt = f"""
 Converti cada producto en una busqueda de supermercado.
 
+{SHOPPING_EXTRACTION_RULES}
+
 REQUIRED RULES:
 - Responde SOLAMENTE JSON valido.
 - No escribas explicaciones.
@@ -121,6 +228,7 @@ REQUIRED RULES:
 - No elimines productos.
 - query siempre en español.
 - query siempre en singular.
+- No separes una marca con su tipo de producto. 'fernet branca' es una sola query.
 
 EXACT FORMAT:
 [
@@ -136,7 +244,7 @@ PRODUCTS:
         messages=[
             {
                 "role": "system",
-                "content": "Sos convertidor estricto de JSON. Responde solo JSON valido, sin texto extra. Responde siempre en español y usa query en singular."
+                "content": "Sos un convertidor estricto de JSON para compras. Responde solo JSON valido. Sigue estas reglas: " + SHOPPING_EXTRACTION_RULES + " No expliques, no agregues texto. Usa query en español y singular. Nunca dividas una marca y un tipo de producto en dos items."
             },
             {
                 "role": "user",
@@ -159,36 +267,46 @@ PRODUCTS:
 
 
 def generate_shopping_list_from_prompt(user_prompt):
+    text = validate_ai_input(user_prompt)
+    parsed = parse_user_prompt_to_items(text)
+    if parsed:
+        return validate_plan(parsed)
+
     prompt = f"""
-Converti pedido de compra de usuario en lista JSON.
+    Converti pedido de compra de usuario en lista JSON.
 
-REQUIRED RULES:
-- Responde SOLAMENTE JSON valido.
-- No escribas explicaciones.
-- No uses markdown.
-- No agregues texto antes ni despues.
-- Mantené cantidades como enteros.
-- Si cantidad no es explicita, usa 1.
-- Cada item debe tener query y quantity.
-- query siempre en español.
-- query siempre en singular.
+    {SHOPPING_EXTRACTION_RULES}
 
-EXACT FORMAT:
-[
-    {{"query":"leche","quantity":2}},
-    {{"query":"shampoo","quantity":1}}
-]
+    REQUIRED RULES:
+    - Responde SOLAMENTE JSON valido.
+    - No escribas explicaciones.
+    - No uses markdown.
+    - No agregues texto antes ni despues.
+    - Mantené cantidades como enteros.
+    - Si cantidad no es explicita, usa 1.
+    - Cada item debe tener query y quantity.
+    - query siempre en español.
+    - query siempre en singular.
+    - No dividas marcas ni tipos de producto en dos items distintos.
+    - "fernet branca" debe mantenerse como una sola query.
+    - "1 pan" no se vuelve "pan" y "1" ni "panes".
 
-USER REQUEST:
-{user_prompt}
-"""
+    EXACT FORMAT:
+    [
+        {{"query":"leche","quantity":2}},
+        {{"query":"shampoo","quantity":1}}
+    ]
+
+    USER REQUEST:
+    {user_prompt}
+    """
 
     response = ollama.chat(
         model=OLLAMA_MODEL,
         messages=[
             {
                 "role": "system",
-                "content": "Sos generador estricto de JSON para listas de compra. Responde solo JSON valido. Responde siempre en español y usa query en singular."
+                "content": "Sos generador estricto de JSON para listas de compra. Responde solo JSON valido. Sigue estas reglas: " + SHOPPING_EXTRACTION_RULES + " Respeta cantidades exactas y nunca dividas marca + producto en dos items."
             },
             {
                 "role": "user",
@@ -197,7 +315,8 @@ USER REQUEST:
         ],
         options={
             "temperature": 0,
-            "top_p": 0.1
+            "top_p": 0.1,
+            "num_predict": OLLAMA_NUM_PREDICT,
         }
     )
 

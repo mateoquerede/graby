@@ -4,6 +4,37 @@ Cart management module
 Provides functionality to clear the shopping cart on Coto Digital.
 """
 
+import re
+import unicodedata
+
+
+def should_clear_cart(message):
+    """Return True only for an explicit request to empty the existing cart."""
+    normalized = unicodedata.normalize("NFD", str(message or "").lower())
+    normalized = "".join(
+        char for char in normalized if unicodedata.category(char) != "Mn"
+    )
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+
+    if re.search(r"\b(no|nunca)\s+(borres|vacias|limpies|elimines)\b", normalized):
+        return False
+
+    return bool(re.search(
+        r"\b("
+        r"(?:borrar|borra|borre|vaciar|vacia|vacie|limpiar|limpia|limpie|"
+        r"eliminar|elimina|elimine)\s+(?:el\s+|mi\s+|el\s+mi\s+)?carrito"
+        r"|"
+        r"(?:borrar|borra|borre|vaciar|vacia|vacie|limpiar|limpia|limpie|"
+        r"eliminar|elimina|elimine)\s+todo\s+(?:del|el)\s+carrito"
+        r"|"
+        r"(?:carrito)\s+(?:vacio|vacia|limpio|limpia|borrado|eliminado)"
+        r"|"
+        r"eliminar\s+todo\s+del\s+carrito"
+        r")\b",
+        normalized,
+    ))
+
+
 def clear_cart(page):
     print("🧹 Opening cart...")
 

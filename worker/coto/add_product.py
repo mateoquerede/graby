@@ -5,7 +5,6 @@ instead of only printing to stdout.
 
 from shopping_copilot.src.evaluator import evaluate_product_with_ai
 from shopping_copilot.src.config import BLOCKED, RULES
-from shopping_copilot.src.search import sort_by_lowest_price
 from shopping_copilot.src.product_parser import extract_candidates
 from shopping_copilot.src.add_product import add_by_plu
 
@@ -16,7 +15,8 @@ def add_product_with_result(page, quantity: int, requested_product: str = "") ->
     and return a result dict suitable for the API response.
     Returns None if no suitable product was found.
     """
-    sort_by_lowest_price(page)
+    # Mantener el orden natural de resultados del buscador para priorizar
+    # coincidencia semántica antes que el producto más barato.
     candidates = extract_candidates(page, quantity)
 
     if not candidates:

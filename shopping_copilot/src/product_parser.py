@@ -193,31 +193,34 @@ def calculate_effective_price(unit_price, quantity, promos):
 
 
 def extract_candidates(page, quantity):
-    # Handle address popup before extracting candidates
+    # Handle address and guest confirmation popups before extracting candidates
     try:
         page.wait_for_timeout(1000)
         popup_selectors = [
+            "dialog",
             ".modal",
             ".modal-dialog", 
             "[role='dialog']",
             ".modal-content",
             ".popup"
         ]
-        
+
         for selector in popup_selectors:
             popup = page.locator(selector).first
             if popup.count() > 0 and popup.is_visible(timeout=500):
                 popup_text = popup.inner_text(timeout=1000)
-                if any(keyword in popup_text.lower() for keyword in ["dirección", "enviar", "entregar", "cambiar"]):
-                    confirm_button = page.get_by_text("Confirmar", exact=False).first
+                if any(keyword in popup_text.lower() for keyword in ["dirección", "enviar", "entregar", "cambiar", "aceptar", "ingresá", "continuar como invitado"]):
+                    confirm_button = page.get_by_text("Aceptar", exact=False).first
+                    if confirm_button.count() == 0:
+                        confirm_button = page.get_by_text("Confirmar", exact=False).first
                     if confirm_button.count() > 0 and confirm_button.is_visible(timeout=500):
                         confirm_button.click(timeout=3000)
-                        debug_print("✅ Address popup handled in extract_candidates")
+                        debug_print("✅ Popup handled in extract_candidates")
                         page.wait_for_timeout(1500)
                         break
     except Exception as e:
-        debug_print(f"⚠️ No address popup in extract_candidates: {e}")
-    
+        debug_print(f"⚠️ No popup in extract_candidates: {e}")
+
     products = get_add_buttons(page)
 
     if products is None:
