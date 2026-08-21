@@ -1,9 +1,5 @@
 """
-Worker entry point.
-
-Polls Redis for purchase jobs, runs the Coto HTTP APIs,
-and publishes status events back to Redis pub/sub so the
-backend can stream them to the frontend via SSE/WebSocket.
+Worker entry point. Claims PostgreSQL jobs and runs the Coto HTTP APIs.
 
 Each job payload:
     {
@@ -13,17 +9,15 @@ Each job payload:
         "message": "Quiero comprar leche y huevos"
     }
 
-Credentials are kept only in memory during the job and are
-never written to logs, Redis keys, or any persistent store.
+Credentials are used only for the Coto session and never written to logs or
+included in worker events.
 """
 
-import json
 import os
 import sys
 import traceback
 
 import httpx
-import redis
 
 # Resolve imports: worker/ + shopping_copilot/ from repo root
 WORKER_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -39,28 +33,14 @@ from shopping_copilot.src.search import search_product
 from coto.login import login_with_credentials
 from coto.add_product import add_product_with_result
 from coto.client import CotoClient
-
-REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
-QUEUE_KEY = "graby:jobs"
-
-def get_redis():
-    return redis.from_url(REDIS_URL, decode_responses=True)
+from database import claim_job, init_db, publish as publish_job, recover_stale_jobs, wait_for_job
 
 
-def publish(r: redis.Redis, job_id: str, status: str, message: str, **extra):
-    payload = {"type": "status", "status": status, "message": message, **extra}
-    r.publish(f"graby:events:{job_id}", json.dumps(payload))
-    # Also store latest status for polling fallback
-    r.hset(
-        f"graby:job:{job_id}",
-        mapping={
-            "status": status,
-            "last_message": message,
-            "last_event": json.dumps(payload),
-        },
-    )
+def publish(r, job_id: str, status: str, message: str, **extra):
+    publish_job(job_id, status, message, **extra)
 
-def publish_debug_usage(r: redis.Redis, job_id: str, label: str):
+
+def publish_debug_usage(r, job_id: str, label: str):
     if not is_debug_enabled():
         drain_usage_events()
         return
@@ -101,7 +81,7 @@ def publish_debug_usage(r: redis.Redis, job_id: str, label: str):
 
 
 def process_job(job: dict):
-    r = get_redis()
+    r = None
     drain_usage_events()
     job_id = job["job_id"]
     email = job["email"]
@@ -223,23 +203,18 @@ def process_job(job: dict):
 
 
 def main():
-    r = get_redis()
+    init_db()
+    recover_stale_jobs()
     print("[worker] Listening for jobs...", flush=True)
 
     while True:
-        # Blocking pop with 5-second timeout so the loop stays alive
-        item = r.blpop(QUEUE_KEY, timeout=5)
-        if item is None:
+        recover_stale_jobs()
+        job = claim_job()
+        if job is None:
+            wait_for_job(2)
             continue
 
-        _, raw = item
-        try:
-            job = json.loads(raw)
-        except json.JSONDecodeError:
-            print(f"[worker] Invalid job payload: {raw}", flush=True)
-            continue
-
-        job_id = job.get("job_id", "unknown")
+        job_id = job["job_id"]
         print(f"[worker] Processing job {job_id}", flush=True)
         process_job(job)
         print(f"[worker] Done with job {job_id}", flush=True)

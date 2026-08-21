@@ -5,8 +5,8 @@ WORKDIR /app
 COPY worker/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy worker code and shopping automation helpers (context = repo root)
 COPY worker/ /app/worker/
 COPY shopping_copilot/ /app/shopping_copilot/
+COPY database.py /app/database.py
 
-CMD ["python", "/app/worker/worker.py"]
+CMD ["python", "/app/worker/main.py"]

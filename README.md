@@ -21,8 +21,8 @@ Visit [heygraby.com](https://heygraby.com).
 |---|---|
 | Frontend | Next.js 14, Tailwind CSS |
 | Backend / API | FastAPI (Python) |
-| Queue | Redis |
-| Worker | Python, httpx, Coto APIs, OpenRouter |
+| Persistence / queue | PostgreSQL (`FOR UPDATE SKIP LOCKED`) |
+| Worker | Python, httpx, Coto HTTP APIs, OpenRouter |
 
 ---
 
@@ -42,10 +42,10 @@ cp .env.example .env
 docker compose up --build
 ```
 
-This compose setup runs in development mode with hot reload:
+This compose setup runs locally with:
 - Frontend: Next.js dev server with live refresh
 - Backend: Uvicorn `--reload`
-- Worker: auto-restart on Python changes in `worker/` and `shopping_copilot/`
+- Worker: a separate PostgreSQL-polling process
 
 - Frontend → http://localhost:3000
 - API → http://localhost:8000
@@ -81,13 +81,14 @@ npm run dev
 
 ## Security
 
-- Credentials are **never** stored in any database, log, or analytics tool.
+- Credentials are accepted only by the backend and are never returned to the frontend,
+  sent to OpenRouter, or written to logs. They are kept in the pending job payload
+  only so the worker can process it; secure the PostgreSQL instance in production.
 - Each job uses an isolated in-memory HTTP session that is closed after completion.
 - OpenRouter receives only the product descriptions — never credentials.
 - Configure `OPENROUTER_MODEL` with a free model first. Add paid model IDs to
   `OPENROUTER_FALLBACK_MODELS` (comma-separated) to use them when the primary
   model is unavailable or rate-limited.
-- Redis stores only job status and events, not credentials.
 
 ---
 
@@ -100,6 +101,8 @@ graby/
 ├── worker/            # HTTP worker + Coto API adapters
 │   └── coto/
 ├── shopping_copilot/  # Search, planner, evaluator, cart helpers
+├── database.py          # Shared PostgreSQL job store
+├── Procfile             # Heroku web + worker process types
 ├── docker-compose.yml
 └── .env.example
 ```

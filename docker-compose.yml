@@ -1,28 +1,32 @@
 services:
-  redis:
-    image: redis:7-alpine
+  postgres:
+    image: postgres:16-alpine
     restart: unless-stopped
+    environment:
+      POSTGRES_DB: graby
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
-      - "6379:6379"
+      - "5432:5432"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d graby"]
       interval: 5s
       timeout: 3s
       retries: 5
 
-  backend:
-    build: ./backend
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/graby
       PYTHONUNBUFFERED: "1"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    volumes:
-      - ./backend:/app
     depends_on:
-      redis:
+      postgres:
         condition: service_healthy
 
   worker:
@@ -31,19 +35,14 @@ services:
       dockerfile: worker/Dockerfile
     restart: unless-stopped
     environment:
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/graby
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL}
       OPENROUTER_FALLBACK_MODELS: ${OPENROUTER_FALLBACK_MODELS:-}
       COTO_SEARCH_API_KEY: ${COTO_SEARCH_API_KEY}
       GRABY_DEBUG: "true"
-      WORKER_HOT_RELOAD: "true"
-      WATCHFILES_FORCE_POLLING: "true"
-    volumes:
-      - ./worker:/app/worker
-      - ./shopping_copilot:/app/shopping_copilot
     depends_on:
-      redis:
+      postgres:
         condition: service_healthy
 
   frontend:
@@ -64,4 +63,4 @@ services:
       - /app/node_modules
       - /app/.next
     depends_on:
-      - backend
+      - api
