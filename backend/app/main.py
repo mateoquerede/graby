@@ -19,9 +19,18 @@ load_dotenv()
 
 TERMINAL_STATUSES = {"COMPLETED", "FAILED"}
 app = FastAPI(title="Graby API", version="0.2.0")
+cors_origins = [
+    origin.strip()
+    for origin in os.environ.get(
+        "CORS_ORIGINS",
+        "https://heygraby.com,https://www.heygraby.com",
+    ).split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+    allow_origins=cors_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
