@@ -6,6 +6,11 @@ export interface CartItem {
   reason: string;
 }
 
+export interface ProposedItem {
+  query: string;
+  quantity: number;
+}
+
 export type NonSummaryMessage =
   | { role: "assistant" | "user"; text: string }
   | { role: "status"; text: string; icon?: string };

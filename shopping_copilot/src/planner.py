@@ -84,7 +84,12 @@ def extract_json(text):
     Extract the first valid JSON array from the model response.
     Works even if the model adds text before or after.
     """
-    candidates = re.findall(r"\[[\s\S]*?\]", text)
+    if isinstance(text, list):
+        return text
+    if isinstance(text, dict) and "query" in text and "quantity" in text:
+        return [text]
+    text = str(text or "")
+    candidates = [text.strip()] + re.findall(r"\[[\s\S]*?\]", text)
 
     for candidate in candidates:
         try:
@@ -92,6 +97,8 @@ def extract_json(text):
 
             if isinstance(data, list):
                 return data
+            if isinstance(data, dict) and "query" in data and "quantity" in data:
+                return [data]
         except json.JSONDecodeError:
             continue
 
@@ -277,9 +284,9 @@ PRODUCTS:
     return validate_plan(data)
 
 
-def generate_shopping_list_from_prompt(user_prompt):
-    text = validate_ai_input(user_prompt)
-    parsed = parse_user_prompt_to_items(text)
+def generate_shopping_list_from_prompt(user_prompt, *, allow_correction=False, previous_items=None):
+    text = validate_ai_input(user_prompt, require_shopping_terms=not allow_correction)
+    parsed = [] if allow_correction else parse_user_prompt_to_items(text)
     if parsed:
         return validate_plan(parsed)
 
@@ -310,6 +317,10 @@ def generate_shopping_list_from_prompt(user_prompt):
 
     USER REQUEST:
     {user_prompt}
+
+    {"CURRENT LIST TO CORRECT:" if allow_correction else ""}
+    {json.dumps(previous_items or [], ensure_ascii=False) if allow_correction else ""}
+    {"Interpretá el pedido como una corrección de la lista actual. Conservá los productos no modificados, reemplazá o ajustá los que el usuario indique y aplicá las cantidades nuevas." if allow_correction else ""}
     """
 
     raw = LLMService().complete_json(

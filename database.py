@@ -44,6 +44,41 @@ def create_job(job_id: str, payload: dict) -> None:
         )
 
 
+def resume_job(job_id: str, *, confirmed_tasks: list[dict] | None = None,
+               message: str | None = None) -> bool:
+    """Put a paused job back in the queue with confirmation or a correction."""
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT payload, last_event FROM jobs WHERE id = %s AND status = 'AWAITING_CONFIRMATION' FOR UPDATE",
+            (job_id,),
+        ).fetchone()
+        if not row:
+            return False
+
+        payload = row["payload"]
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        if confirmed_tasks is not None:
+            payload["confirmed_tasks"] = confirmed_tasks
+        else:
+            previous_event = row["last_event"]
+            if isinstance(previous_event, str):
+                previous_event = json.loads(previous_event)
+            payload["previous_tasks"] = (previous_event or {}).get("items", [])
+            payload.pop("confirmed_tasks", None)
+            payload["message"] = message
+            payload["correction_mode"] = True
+
+        conn.execute(
+            """UPDATE jobs
+               SET payload = %s, status = 'PENDING', locked_at = NULL,
+                   updated_at = NOW()
+               WHERE id = %s""",
+            (json.dumps(payload), job_id),
+        )
+        return True
+
+
 def get_job(job_id: str) -> dict | None:
     with connect() as conn:
         return conn.execute(
@@ -103,7 +138,7 @@ def recover_stale_jobs(max_age_seconds: int = 900) -> None:
     with connect() as conn:
         conn.execute(
             """UPDATE jobs SET status = 'PENDING', locked_at = NULL, updated_at = NOW()
-               WHERE status NOT IN ('PENDING', 'COMPLETED', 'FAILED')
+               WHERE status NOT IN ('PENDING', 'COMPLETED', 'FAILED', 'AWAITING_CONFIRMATION')
                  AND locked_at < NOW() - (%s * INTERVAL '1 second')""",
             (max_age_seconds,),
         )

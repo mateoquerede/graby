@@ -87,26 +87,31 @@ def process_job(job: dict):
     email = job["email"]
     password = job["password"]
     message = job["message"]
-    publish(r, job_id, "STARTING", "Iniciando el asistente de compras...")
-
+    publish(r, job_id, "STARTING", "Procesando tu pedido...")
     try:
-        publish(r, job_id, "INTERPRETING_REQUEST", "Interpretando tu pedido...")
-        try:
-            products = generate_shopping_list_from_prompt(message)
-            publish_debug_usage(r, job_id, "interpretación del pedido")
-        except httpx.ConnectError:
-            publish(
-                r, job_id, "FAILED",
-                "No se pudo conectar al servicio de IA (OpenRouter). Verificá la API key e intentá nuevamente.",
-            )
-            return
-        except LLMServiceError as exc:
-            publish(r, job_id, "FAILED", str(exc))
-            return
-        except ValueError as exc:
-            publish(r, job_id, "FAILED", str(exc))
-            return
-        tasks = plan(products)
+        publish(r, job_id, "INTERPRETING_REQUEST", "Entendiendo tu pedido...")
+        tasks = job.get("confirmed_tasks")
+        if tasks is None:
+            try:
+                products = generate_shopping_list_from_prompt(
+                    message,
+                    allow_correction=bool(job.get("correction_mode")),
+                    previous_items=job.get("previous_tasks"),
+                )
+                publish_debug_usage(r, job_id, "interpretación del pedido")
+            except httpx.ConnectError:
+                publish(
+                    r, job_id, "FAILED",
+                    "No se pudo conectar al servicio de IA (OpenRouter). Verificá la API key e intentá nuevamente.",
+                )
+                return
+            except LLMServiceError as exc:
+                publish(r, job_id, "FAILED", str(exc))
+                return
+            except ValueError as exc:
+                publish(r, job_id, "FAILED", str(exc))
+                return
+            tasks = plan(products)
 
         if not tasks:
             publish(r, job_id, "FAILED", "No pude interpretar productos en tu pedido.")
@@ -114,10 +119,17 @@ def process_job(job: dict):
 
         publish(
             r, job_id, "INTERPRETED",
-            f"Entendí que necesitás {len(tasks)} producto(s).",
+            f"Separé tu pedido en {len(tasks)} producto(s) para buscar.",
             item_count=len(tasks),
             items=[t["query"] for t in tasks],
         )
+        if job.get("confirmed_tasks") is None:
+            publish(
+                r, job_id, "AWAITING_CONFIRMATION",
+                "Entendí tu pedido y armé esta lista. ¿Está bien? Confirmala para comenzar la búsqueda o enviame una corrección.",
+                items=tasks,
+            )
+            return
 
         client = CotoClient()
         try:
@@ -138,7 +150,7 @@ def process_job(job: dict):
 
             selected_items = []
 
-            publish(r, job_id, "SEARCHING_PRODUCTS", "Comenzando la búsqueda de productos...")
+            publish(r, job_id, "SEARCHING_PRODUCTS", "Voy a buscar cada producto y comparar las opciones disponibles.")
 
             for task in tasks:
                 query = task["query"]
@@ -149,6 +161,7 @@ def process_job(job: dict):
 
                 try:
                     search_payload = search_product(client, query)
+                    publish(r, job_id, "COMPARING_OPTIONS", f'Comparando opciones para "{query}"...')
                     result = add_product_with_result(
                         client, search_payload, quantity, requested_product=query
                     )
@@ -157,7 +170,7 @@ def process_job(job: dict):
                     if result:
                         publish(
                             r, job_id, "PRODUCT_ADDED",
-                            f"Agregué {quantity}x {result['name']} al carrito.",
+                            f'Encontré una buena coincidencia y la sumé al carrito: {quantity}x {result["name"]}.',
                             product=result,
                         )
                         selected_items.append(result)
@@ -174,6 +187,7 @@ def process_job(job: dict):
                         f'⚠️ Error buscando "{query}": {exc}',
                         requested=query,
                     )
+            publish(r, job_id, "REVIEWING_CART", "Revisando los productos seleccionados...")
             checkout_url = client.cart_url()
             checkout_url = client.cart_url()
         finally:
@@ -184,9 +198,11 @@ def process_job(job: dict):
             for item in selected_items
         )
 
+        publish(r, job_id, "CALCULATING_TOTAL", "Calculando el total estimado...")
+        publish(r, job_id, "PREPARING_CART", "Preparando tu carrito...")
         publish(
             r, job_id, "COMPLETED",
-            "Tu carrito está listo. Revisá los productos y completá el pago.",
+            "Listo. Preparé tu carrito. Revisá los productos y completá el pago.",
             items=selected_items,
             total=total,
             checkout_url=checkout_url,

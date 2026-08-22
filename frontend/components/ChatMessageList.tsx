@@ -1,4 +1,4 @@
-import { RefObject } from "react";
+import { ReactNode, RefObject } from "react";
 import CartSummary from "./CartSummary";
 import Message from "./Message";
 import { ChatMessage } from "./Chat.types";
@@ -7,9 +7,10 @@ interface Props {
   messages: ChatMessage[];
   busy: boolean;
   bottomRef: RefObject<HTMLDivElement>;
+  confirmation?: ReactNode;
 }
 
-export default function ChatMessageList({ messages, busy, bottomRef }: Props) {
+export default function ChatMessageList({ messages, busy, bottomRef, confirmation }: Props) {
   return (
     <div className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1">
       {messages.map((msg, i) => {
@@ -25,6 +26,7 @@ export default function ChatMessageList({ messages, busy, bottomRef }: Props) {
         }
         return <Message key={i} msg={msg} />;
       })}
+      {confirmation}
       {busy && (
         <div className="flex items-center gap-2 text-sm text-gray-400 pl-2">
           <span className="animate-spin">⏳</span>

@@ -10,10 +10,10 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from database import create_job, get_job, init_db  # noqa: E402
+from database import create_job, get_job, init_db, resume_job  # noqa: E402
 
 load_dotenv()
 
@@ -52,6 +52,20 @@ class PurchaseRequest(BaseModel):
         return value
 
 
+class ConfirmationRequest(BaseModel):
+    confirmed: bool
+    message: str | None = None
+    items: list[dict] | None = None
+
+    @model_validator(mode="after")
+    def validate_confirmation(self):
+        if self.confirmed and not self.items:
+            raise ValueError("items are required when confirming")
+        if not self.confirmed and (not self.message or not self.message.strip()):
+            raise ValueError("message is required when correcting")
+        return self
+
+
 def event_for(job: dict) -> dict:
     event = job.get("last_event")
     if isinstance(event, str):
@@ -86,6 +100,22 @@ def purchase_status(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return serialize_job(job)
+
+
+@app.post("/api/purchases/{job_id}/confirm")
+def confirm_purchase(job_id: str, body: ConfirmationRequest):
+    resumed = resume_job(
+        job_id,
+        confirmed_tasks=body.items if body.confirmed else None,
+        message=body.message.strip() if body.message else None,
+    )
+    if not resumed:
+        job = get_job(job_id)
+        if job and job["status"] in {"PENDING", "STARTING", "AUTHENTICATING", "AUTHENTICATED",
+                                    "SEARCHING_PRODUCTS", "COMPLETED"}:
+            return {"job_id": job_id, "status": job["status"]}
+        raise HTTPException(status_code=409, detail="El pedido ya no espera confirmación.")
+    return {"job_id": job_id, "status": "PENDING"}
 
 
 async def stream_events(job_id: str):
