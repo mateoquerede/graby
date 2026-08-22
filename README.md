@@ -85,7 +85,9 @@ npm run dev
   sent to OpenRouter, or written to logs. They are kept in the pending job payload
   only so the worker can process it; secure the PostgreSQL instance in production.
 - Each job uses an isolated in-memory HTTP session that is closed after completion.
-- OpenRouter receives only the product descriptions — never credentials.
+- OpenRouter is called only by the worker through `OpenRouterClient`; its API key
+  comes from `OPENROUTER_API_KEY` and is never exposed to the frontend.
+- OpenRouter receives only the product descriptions — never Coto credentials.
 - Configure `OPENROUTER_MODEL` with a free model first. Add paid model IDs to
   `OPENROUTER_FALLBACK_MODELS` (comma-separated) to use them when the primary
   model is unavailable or rate-limited.
@@ -98,8 +100,8 @@ npm run dev
 graby/
 ├── frontend/          # Next.js chat UI
 ├── backend/           # FastAPI — job creation, SSE streaming
-├── worker/            # HTTP worker + Coto API adapters
-│   └── coto/
+├── worker/            # HTTP worker + centralized external API clients
+│   └── coto/          # CotoClient owns the Coto API session and requests
 ├── shopping_copilot/  # Search, planner, evaluator, cart helpers
 ├── database.py          # Shared PostgreSQL job store
 ├── Procfile             # Heroku web + worker process types

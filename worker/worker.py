@@ -189,7 +189,6 @@ def process_job(job: dict):
                     )
             publish(r, job_id, "REVIEWING_CART", "Revisando los productos seleccionados...")
             checkout_url = client.cart_url()
-            checkout_url = client.cart_url()
         finally:
             client.close()
 

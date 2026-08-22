@@ -1,4 +1,4 @@
-"""Provider-agnostic JSON LLM service backed by OpenRouter."""
+"""Dedicated OpenRouter client for JSON LLM requests."""
 
 import os
 
@@ -19,8 +19,13 @@ class LLMServiceError(RuntimeError):
     """Raised when every configured model fails to produce a response."""
 
 
-class LLMService:
-    """Call the configured primary model and optional fallbacks in order."""
+class OpenRouterClient:
+    """Call OpenRouter using worker-side configuration and model fallbacks.
+
+    The API key is read from the worker environment by default. The optional
+    constructor argument is only useful for isolated tests or server-side
+    callers; it is never supplied by the frontend.
+    """
 
     def __init__(self, api_key=None, model=None, fallback_models=None, base_url=None, timeout=None):
         self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY", "")
@@ -117,3 +122,8 @@ class LLMService:
         raise LLMServiceError(
             "Todos los modelos de OpenRouter fallaron: " + "; ".join(errors)
         )
+
+
+# Keep the existing application import stable while exposing the provider-specific
+# service name for new callers.
+LLMService = OpenRouterClient

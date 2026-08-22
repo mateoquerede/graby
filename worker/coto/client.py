@@ -71,7 +71,6 @@ class CotoClient:
             return {}
         try:
             payload = response.json()
-            debug_print("Coto delivery addresses:", payload)
         except ValueError as exc:
             raise CotoApiError("Respuesta de login inválida") from exc
         if str(payload.get("codigoError", "0")) != "0" or payload.get("error"):
