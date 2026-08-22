@@ -11,6 +11,9 @@ export default function Home() {
       <div className="w-full max-w-2xl flex flex-col h-full max-h-[90vh]">
         <header className="flex items-center gap-2 border-b border-gray-200 pb-4">
           <span className="text-2xl font-bold tracking-tight">Graby</span>
+          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+            beta
+          </span>
           <span className="ml-1 text-sm text-gray-400">tu copiloto de compras</span>
           <button
             type="button"
