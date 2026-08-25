@@ -1,11 +1,21 @@
-FROM python:3.12-slim
+FROM golang:1.22-alpine AS build
 
-WORKDIR /app
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/graby-api ./cmd/api && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/graby-worker ./cmd/worker
 
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+FROM alpine:3.20 AS api
+RUN apk add --no-cache ca-certificates && adduser -D -H -u 10001 graby
+USER graby
+COPY --from=build /out/graby-api /graby-api
+EXPOSE 8000
+ENTRYPOINT ["/graby-api"]
 
-COPY backend/ /app/
-COPY database.py /app/database.py
-
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
+FROM alpine:3.20 AS worker
+RUN apk add --no-cache ca-certificates && adduser -D -H -u 10001 graby
+USER graby
+COPY --from=build /out/graby-worker /graby-worker
+ENTRYPOINT ["/graby-worker"]

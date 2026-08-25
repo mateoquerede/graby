@@ -17,14 +17,13 @@ services:
   api:
     build:
       context: .
-      dockerfile: backend/Dockerfile
+      target: api
     restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/graby
-      PYTHONUNBUFFERED: "1"
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,7 +31,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: worker/Dockerfile
+      target: worker
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/graby

@@ -1,12 +1,12 @@
-FROM python:3.12-bullseye
+FROM golang:1.22-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /graby-worker ./cmd/worker
 
-WORKDIR /app
-
-COPY worker/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY worker/ /app/worker/
-COPY shopping_copilot/ /app/shopping_copilot/
-COPY database.py /app/database.py
-
-CMD ["python", "/app/worker/main.py"]
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates && adduser -D -H -u 10001 graby
+USER graby
+COPY --from=build /graby-worker /graby-worker
+ENTRYPOINT ["/graby-worker"]
