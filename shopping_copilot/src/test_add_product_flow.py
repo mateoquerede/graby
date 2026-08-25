@@ -75,6 +75,33 @@ class PlannerPromptParsingTests(unittest.TestCase):
         self.assertEqual(result, [{"query": "pan", "quantity": 1}])
         mocked_llm.assert_not_called()
 
+    def test_recipe_prompt_uses_ai_to_select_ingredients(self):
+        with patch.object(
+            planner.LLMService,
+            "complete_json",
+            return_value='[{"query":"harina","quantity":2},{"query":"huevo","quantity":2}]',
+        ) as mocked_llm:
+            result = planner.generate_shopping_list_from_prompt(
+                "tengo la idea de cocinar una torta de vainilla, elegí lo necesario"
+            )
+
+        self.assertEqual(
+            result,
+            [{"query": "harina", "quantity": 2}, {"query": "huevo", "quantity": 2}],
+        )
+        mocked_llm.assert_called_once()
+        prompt = mocked_llm.call_args.kwargs["messages"][1]["content"]
+        self.assertIn("ingredientes comprables", prompt)
+
+    def test_recipe_prompt_is_allowed_without_explicit_shopping_term(self):
+        with patch.object(planner.LLMService, "complete_json", return_value="[]"):
+            self.assertEqual(
+                planner.generate_shopping_list_from_prompt(
+                    "los ingredientes para hacer tacos de carne"
+                ),
+                [],
+            )
+
     def test_validate_plan_allows_decimal_quantities(self):
         result = planner.validate_plan([{"query": "harina", "quantity": 1.5}])
         self.assertEqual(result, [{"query": "harina", "quantity": 1.5}])

@@ -19,6 +19,13 @@ SHOPPING_TERMS = {
     "producto", "queso", "sal", "shampoo", "supermercado", "vino", "yogur",
     "yerba",
 }
+RECIPE_REQUEST_PATTERNS = (
+    r"\b(?:quiero|voy\s+a|tengo\s+(?:la\s+)?idea\s+de|me\s+gustaría)\s+"
+    r"(?:cocinar|hacer|preparar)\b",
+    r"\b(?:ingredientes?|necesario|necesarios|necesaria|necesarias)\s+"
+    r"(?:para|de)\b",
+    r"\b(?:receta|cocinar|preparar)\s+(?:una?\s+)?[a-záéíóúüñ]+",
+)
 SHOPPING_UNITS = r"(?:kg|kgs|kilo(?:s)?|g|gr|gramo(?:s)?|l|lt|lts|litro(?:s)?|ml|unidad(?:es)?|pack|caja(?:s)?|botella(?:s)?)"
 INJECTION_PATTERNS = (
     r"\b(ignore|ignora|olvida|forget|disregard)\b.{0,40}\b(instrucciones?|rules?|reglas?)\b",
@@ -45,8 +52,11 @@ def validate_ai_input(text, *, max_chars=MAX_AI_PROMPT_CHARS, require_shopping_t
     tokens = _tokens(value)
     has_quantity = re.search(rf"\b\d+(?:[.,]\d+)?\s*{SHOPPING_UNITS}\b", value, re.IGNORECASE)
     has_multiple_quantity_items = len(re.findall(r"\b\d+(?:[.,]\d+)?\b", value)) >= 2
+    is_recipe_request = any(
+        re.search(pattern, value, re.IGNORECASE) for pattern in RECIPE_REQUEST_PATTERNS
+    )
     if require_shopping_terms and not (
-        tokens & SHOPPING_TERMS or has_quantity or has_multiple_quantity_items
+        tokens & SHOPPING_TERMS or has_quantity or has_multiple_quantity_items or is_recipe_request
     ):
         raise ValueError("Solo puedo ayudarte a armar un carrito de compras.")
     return value

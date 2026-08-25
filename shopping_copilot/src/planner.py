@@ -8,7 +8,11 @@ for supermarket shopping, maintaining exact quantities.
 import json
 import re
 from shopping_copilot.src.config import debug_print, LLM_MAX_TOKENS
-from shopping_copilot.src.ai_guard import validate_ai_input, validate_item_limits
+from shopping_copilot.src.ai_guard import (
+    RECIPE_REQUEST_PATTERNS,
+    validate_ai_input,
+    validate_item_limits,
+)
 from shopping_copilot.src.llm_service import LLMService
 
 
@@ -49,6 +53,21 @@ Reglas de extracción obligatorias:
 - No inventes marcas, sabores, tamaños ni elementos que no estén en el pedido.
 - No uses markdown, ni texto fuera del JSON.
 """
+
+RECIPE_EXTRACTION_RULES = """
+El pedido puede solicitar los ingredientes necesarios para cocinar o preparar una receta.
+- Si el usuario pide ingredientes, lo necesario o elementos para hacer un plato, interpretá el plato y elegí sus ingredientes habituales.
+- Devolvé cada ingrediente como un producto comprable, con una cantidad razonable para una receta estándar.
+- quantity representa la cantidad de unidades o paquetes para comprar, no gramos o mililitros de la receta.
+- Incluí ingredientes básicos necesarios para la receta aunque el usuario no los enumere.
+- No devuelvas pasos de preparación, utensilios, explicaciones ni el nombre del plato como producto.
+- Si el plato admite variantes, elegí una versión clásica y no agregues ingredientes opcionales.
+"""
+
+
+def is_recipe_request(text):
+    value = str(text or "")
+    return any(re.search(pattern, value, re.IGNORECASE) for pattern in RECIPE_REQUEST_PATTERNS)
 
 
 def singularize_spanish_query(query):
@@ -286,7 +305,8 @@ PRODUCTS:
 
 def generate_shopping_list_from_prompt(user_prompt, *, allow_correction=False, previous_items=None):
     text = validate_ai_input(user_prompt, require_shopping_terms=not allow_correction)
-    parsed = [] if allow_correction else parse_user_prompt_to_items(text)
+    recipe_request = is_recipe_request(text)
+    parsed = [] if allow_correction or recipe_request else parse_user_prompt_to_items(text)
     if parsed:
         return validate_plan(parsed)
 
@@ -294,6 +314,7 @@ def generate_shopping_list_from_prompt(user_prompt, *, allow_correction=False, p
     Converti pedido de compra de usuario en lista JSON.
 
     {SHOPPING_EXTRACTION_RULES}
+    {RECIPE_EXTRACTION_RULES if recipe_request else ""}
 
     REQUIRED RULES:
     - Responde SOLAMENTE JSON valido.
@@ -306,6 +327,7 @@ def generate_shopping_list_from_prompt(user_prompt, *, allow_correction=False, p
     - query siempre en español.
     - query siempre en singular.
     - No dividas marcas ni tipos de producto en dos items distintos.
+    - Para pedidos de recetas, convertí el plato solicitado en sus ingredientes comprables.
     - "fernet branca" debe mantenerse como una sola query.
     - "1 pan" no se vuelve "pan" y "1" ni "panes".
 
@@ -327,7 +349,10 @@ def generate_shopping_list_from_prompt(user_prompt, *, allow_correction=False, p
         messages=[
             {
                 "role": "system",
-                "content": "Sos generador estricto de JSON para listas de compra. Responde solo JSON valido. Sigue estas reglas: " + SHOPPING_EXTRACTION_RULES + " Respeta cantidades exactas y nunca dividas marca + producto en dos items."
+                "content": "Sos generador estricto de JSON para listas de compra. Responde solo JSON valido. Sigue estas reglas: "
+                + SHOPPING_EXTRACTION_RULES
+                + (RECIPE_EXTRACTION_RULES if recipe_request else "")
+                + " Respeta cantidades exactas y nunca dividas marca + producto en dos items."
             },
             {
                 "role": "user",
