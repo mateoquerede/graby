@@ -95,9 +95,6 @@ Implementation packages are deliberately separated by responsibility:
 - `internal/worker`: planning, candidate ranking, cart processing, and worker
   event publication.
 
-The historical Python directories remain in the tree as migration reference
-and are not used by Compose or the root Docker targets.
-
 ## Security
 
 - Credentials are accepted only by the backend and are never returned to the frontend,
@@ -121,7 +118,6 @@ graby/
 ├── cmd/api/           # Go HTTP API entry point
 ├── cmd/worker/        # Go worker entry point
 ├── internal/          # API, typed models, Postgres, Coto and OpenRouter packages
-├── backend/, worker/, shopping_copilot/ # Historical Python migration reference
 ├── Procfile             # Heroku web + worker process types
 ├── docker-compose.yml
 └── .env.example
