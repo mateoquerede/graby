@@ -3,8 +3,6 @@ build:
     web:
       dockerfile: Dockerfile
       target: api
-      args:
-        APP_VERSION: 0.1.0-beta
     worker:
       dockerfile: Dockerfile
       target: worker
