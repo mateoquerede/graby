@@ -4,7 +4,8 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/graby-api ./cmd/api && \
+ARG APP_VERSION=dev
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.Version=${APP_VERSION}" -o /out/graby-api ./cmd/api && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/graby-worker ./cmd/worker
 
 FROM alpine:3.20 AS api

@@ -9,24 +9,26 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	"graby/internal/models"
 	"graby/internal/store"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
 )
 
 type Server struct {
 	repo    *store.Repository
 	origins map[string]bool
+	version string
 }
 
-func New(repo *store.Repository, origins []string) *Server {
+func New(repo *store.Repository, origins []string, version string) *Server {
 	allowed := make(map[string]bool, len(origins))
 	for _, origin := range origins {
 		allowed[origin] = true
 	}
-	return &Server{repo: repo, origins: allowed}
+	return &Server{repo: repo, origins: allowed, version: version}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -36,6 +38,10 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/health" && r.Method == http.MethodGet {
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+		return
+	}
+	if r.URL.Path == "/version" && r.Method == http.MethodGet {
+		writeJSON(w, http.StatusOK, map[string]string{"version": s.version})
 		return
 	}
 	const prefix = "/api/purchases"

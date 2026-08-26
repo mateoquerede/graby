@@ -20,7 +20,7 @@ export default function Home() {
             <p className="text-[10px] text-gray-500 dark:text-gray-400">tu copiloto de compras</p>
           </div>
           <span className="ml-1 rounded-full bg-gradient-to-r from-indigo-100 to-fuchsia-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-200 dark:from-indigo-500/20 dark:to-fuchsia-500/20 dark:text-indigo-300 dark:ring-indigo-400/30">
-            alpha
+            {process.env.NEXT_PUBLIC_APP_VERSION}
           </span>
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
@@ -46,6 +46,9 @@ export default function Home() {
         </div>
       </div>
       <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
+      <footer className="mt-2 text-center text-[10px] text-gray-400 dark:text-gray-500">
+        Graby v{process.env.NEXT_PUBLIC_APP_VERSION} · beta
+      </footer>
     </main>
   );
 }
