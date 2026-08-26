@@ -1,6 +1,7 @@
 import { ReactNode, RefObject } from "react";
 import CartSummary from "./CartSummary";
 import Message from "./Message";
+import BotAvatar from "./BotAvatar";
 import { ChatMessage } from "./Chat.types";
 
 interface Props {
@@ -28,9 +29,13 @@ export default function ChatMessageList({ messages, busy, bottomRef, confirmatio
       })}
       {confirmation}
       {busy && (
-        <div className="flex items-center gap-2 text-sm text-gray-400 pl-2">
-          <span className="animate-spin">⏳</span>
-          <span>Graby está trabajando...</span>
+        <div className="msg-enter flex items-center gap-2.5 pl-0.5">
+          <BotAvatar size="sm" animate={false} />
+          <div className="flex items-center gap-1.5 rounded-full border border-white/70 bg-white px-4 py-3 shadow-sm dark:border-white/10 dark:bg-white/5">
+            <span className="typing-dot h-2 w-2 rounded-full bg-indigo-400 dark:bg-indigo-300" />
+            <span className="typing-dot h-2 w-2 rounded-full bg-indigo-400 dark:bg-indigo-300" />
+            <span className="typing-dot h-2 w-2 rounded-full bg-indigo-400 dark:bg-indigo-300" />
+          </div>
         </div>
       )}
       <div ref={bottomRef} />

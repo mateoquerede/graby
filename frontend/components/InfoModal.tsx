@@ -29,21 +29,21 @@ export default function InfoModal({ open, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 dark:bg-black/70"
       onClick={onClose}
       role="presentation"
     >
       <section
         aria-labelledby="info-modal-title"
         aria-modal="true"
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:ring-1 dark:ring-white/10"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
       >
-        <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
+        <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5 dark:border-white/10">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">Guía rápida</p>
-            <h2 id="info-modal-title" className="mt-1 text-xl font-semibold text-gray-900">
+            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Guía rápida</p>
+            <h2 id="info-modal-title" className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100">
               Cómo funciona Graby
             </h2>
           </div>
@@ -51,25 +51,25 @@ export default function InfoModal({ open, onClose }: Props) {
             type="button"
             aria-label="Cerrar información"
             onClick={onClose}
-            className="rounded-lg p-2 text-xl leading-none text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            className="rounded-lg p-2 text-xl leading-none text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-white/10 dark:hover:text-gray-200"
           >
             ×
           </button>
         </div>
 
-        <div className="space-y-5 px-6 py-5 text-sm leading-6 text-gray-600">
+        <div className="space-y-5 px-6 py-5 text-sm leading-6 text-gray-600 dark:text-gray-300">
           <div>
-            <h3 className="font-semibold text-gray-900">1. Contale qué necesitás</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">1. Contale qué necesitás</h3>
             <p>
               Escribí un pedido con tus productos, cantidades y preferencias. Por ejemplo:
-              <span className="mt-2 block rounded-lg bg-gray-50 px-3 py-2 text-gray-700">
+              <span className="mt-2 block rounded-lg bg-gray-50 px-3 py-2 text-gray-700 dark:bg-white/5 dark:text-gray-200">
                 “Comprá 2 paquetes de fideos, leche descremada y algo dulce para el sábado.”
               </span>
             </p>
           </div>
 
           <div>
-            <h3 className="font-semibold text-gray-900">2. Revisá el resultado</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">2. Revisá el resultado</h3>
             <p>
               Graby busca los productos y arma el carrito en la tienda. Al finalizar vas a poder
               revisar el carrito y completar el pago directamente en la tienda.
@@ -77,14 +77,14 @@ export default function InfoModal({ open, onClose }: Props) {
           </div>
 
           <div>
-            <h3 className="font-semibold text-gray-900">Para obtener mejores resultados</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Para obtener mejores resultados</h3>
             <p>
               Indicá marca, tamaño, presupuesto o reemplazos aceptables. Si algo no queda claro,
               podés enviar otro pedido para ajustar tu compra.
             </p>
           </div>
 
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
             <h3 className="font-semibold">Importante</h3>
             <ul className="mt-1 list-disc space-y-1 pl-5">
               <li>Graby usa modelos de IA no determinísticos: puede interpretar mal o equivocarse.</li>

@@ -1,3 +1,85 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Fondo con orbes de color suaves */
+body {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.18), transparent 40%),
+    radial-gradient(circle at 85% 0%, rgba(217, 70, 239, 0.16), transparent 40%),
+    radial-gradient(circle at 80% 90%, rgba(34, 211, 238, 0.14), transparent 45%),
+    #f8fafc;
+  background-attachment: fixed;
+  transition: background-color 0.3s ease;
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.28), transparent 40%),
+    radial-gradient(circle at 85% 0%, rgba(217, 70, 239, 0.22), transparent 40%),
+    radial-gradient(circle at 80% 90%, rgba(34, 211, 238, 0.18), transparent 45%),
+    #0b1020;
+  background-attachment: fixed;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+/* Scrollbar sutil */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.35);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.45);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.7);
+}
+
+/* Dots de "escribiendo" */
+@keyframes graby-typing {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+.typing-dot {
+  animation: graby-typing 1.2s infinite ease-in-out;
+}
+.typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* Animación de aparición de mensajes */
+@keyframes graby-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.msg-enter {
+  animation: graby-fade-in 0.25s ease-out;
+}
