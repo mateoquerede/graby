@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"graby/internal/config"
-	"graby/internal/coto"
+	"graby/internal/integrations/coto"
 	"graby/internal/guard"
 	"graby/internal/models"
 	"graby/internal/openrouter"

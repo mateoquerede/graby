@@ -90,7 +90,7 @@ Implementation packages are deliberately separated by responsibility:
 - `internal/store`: PostgreSQL schema, queue claiming, event persistence, and
   stale-job recovery.
 - `internal/openrouter`: model fallback and JSON-completion adapter.
-- `internal/coto`: isolated cookie-based Coto session, authentication, search,
+- `internal/integrations/coto`: isolated cookie-based Coto session, authentication, search,
   delivery-address selection, and cart adapter.
 - `internal/worker`: planning, candidate ranking, cart processing, and worker
   event publication.
