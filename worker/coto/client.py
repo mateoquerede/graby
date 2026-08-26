@@ -35,21 +35,26 @@ class CotoClient:
         self.http.close()
 
     def bootstrap(self):
+        debug_print("[Coto bootstrap] init request...")
         response = self.http.post(
             "/rest/model/atg/actors/cProfileActor/init",
             params={"pushSite": "CotoDigital"},
         )
+        debug_print(f"[Coto bootstrap] init status={response.status_code}")
         response.raise_for_status()
         confirmation = self.http.post(
             "/rest/model/atg/rest/SessionConfirmationActor/getSessionConfirmationNumber",
             params={"pushSite": "CotoDigital"},
         )
+        debug_print(f"[Coto bootstrap] confirmation status={confirmation.status_code}")
         confirmation.raise_for_status()
         payload = confirmation.json()
+        debug_print("[Coto bootstrap] confirmation payload:", payload)
         token = payload.get("sessionConfirmationNumber")
         if token is None:
             raise CotoApiError("Coto no devolvió un token de sesión")
         self.dyn_sess_conf = str(token)
+        debug_print(f"[Coto bootstrap] dyn_sess_conf={self.dyn_sess_conf}")
 
     def _actor_url(self, path):
         if not self.dyn_sess_conf:
@@ -60,22 +65,30 @@ class CotoClient:
         }
 
     def login(self, login: str, password: str):
+        debug_print(f"[Coto login] POST {self.LOGIN_URL} (login={login!r}, password_len={len(password)})")
         url, params = self._actor_url(self.LOGIN_URL)
         response = self.http.post(
             url,
             params=params,
             data={"IsAngular": "true", "login": login, "password": password},
         )
+        debug_print(f"[Coto login] status={response.status_code}")
+        debug_print(f"[Coto login] response text={response.text[:500]!r}")
         response.raise_for_status()
         if not response.text.strip():
+            debug_print("[Coto login] empty response body")
             return {}
         try:
             payload = response.json()
         except ValueError as exc:
+            debug_print("[Coto login] invalid JSON response")
             raise CotoApiError("Respuesta de login inválida") from exc
+        debug_print(f"[Coto login] parsed payload={payload}")
         if str(payload.get("codigoError", "0")) != "0" or payload.get("error"):
+            debug_print(f"[Coto login] rejected: codigoError={payload.get('codigoError')} error={payload.get('error')}")
             raise ValueError("Credenciales inválidas")
         if isinstance(payload, dict) and payload.get("success") is False:
+            debug_print("[Coto login] rejected: success=false")
             raise ValueError("Credenciales inválidas")
         return payload
 

@@ -86,6 +86,7 @@ func (w *Worker) process(ctx context.Context, job *models.Job) {
 	}
 
 	client := coto.New(w.cfg.CotoSearchKey)
+	client.SetDebug(w.cfg.Debug)
 	if err := client.Bootstrap(ctx); err != nil {
 		publish(models.StatusFailed, safeExternalError(err), nil)
 		return

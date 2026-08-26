@@ -138,7 +138,23 @@ def process_job(job: dict):
 
             try:
                 login_with_credentials(client, email, password)
-            except ValueError:
+            except ValueError as exc:
+                print(
+                    f"[worker] Job {job_id} login failed (ValueError): {exc}",
+                    flush=True,
+                )
+                publish(
+                    r, job_id, "FAILED",
+                    "No pude iniciar sesión. Verificá tus credenciales e intentá nuevamente.",
+                )
+                return
+            except Exception as exc:
+                # Log the real failure reason (never credentials) to diagnose
+                # login issues that are not plain "invalid credentials".
+                print(
+                    f"[worker] Job {job_id} login failed ({type(exc).__name__}): {exc}",
+                    flush=True,
+                )
                 publish(
                     r, job_id, "FAILED",
                     "No pude iniciar sesión. Verificá tus credenciales e intentá nuevamente.",
