@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/heygraby/graby/internal/models"
-	"github.com/heygraby/graby/internal/store"
+	"graby/internal/models"
+	"graby/internal/store"
 	"github.com/jackc/pgx/v5"
 )
 

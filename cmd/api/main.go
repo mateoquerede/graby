@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/heygraby/graby/internal/api"
-	"github.com/heygraby/graby/internal/config"
-	"github.com/heygraby/graby/internal/store"
+	"graby/internal/api"
+	"graby/internal/config"
+	"graby/internal/store"
 )
 
 func main() {

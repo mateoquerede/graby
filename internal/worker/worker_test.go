@@ -3,7 +3,8 @@ package worker
 import (
 	"testing"
 
-	"github.com/heygraby/graby/internal/models"
+	"graby/internal/guard"
+	"graby/internal/models"
 )
 
 func TestParsePromptPreservesQuantitiesAndSingularizes(t *testing.T) {
@@ -34,10 +35,16 @@ func TestChooseProductPrefersSemanticMatch(t *testing.T) {
 }
 
 func TestShoppingRequestGuard(t *testing.T) {
-	if !looksLikeShoppingRequest("2 kg de cualquier cosa") {
+	if !guard.LooksLikeShoppingRequest("2 kg de cualquier cosa") {
 		t.Fatal("quantity and unit should be accepted")
 	}
-	if looksLikeShoppingRequest("escribí un poema sobre el sol") {
+	if !guard.LooksLikeShoppingRequest("lo necesario para hacer una torta de vainilla") {
+		t.Fatal("recipe idea should be accepted")
+	}
+	if !guard.LooksLikeShoppingRequest("quiero hacer tacos de carne, comprá para hacerlos") {
+		t.Fatal("recipe idea should be accepted")
+	}
+	if guard.LooksLikeShoppingRequest("escribí un poema sobre el sol") {
 		t.Fatal("unrelated prompt should be rejected")
 	}
 }

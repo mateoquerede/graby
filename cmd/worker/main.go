@@ -8,9 +8,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/heygraby/graby/internal/config"
-	"github.com/heygraby/graby/internal/store"
-	"github.com/heygraby/graby/internal/worker"
+	"graby/internal/config"
+	"graby/internal/store"
+	"graby/internal/worker"
 )
 
 func main() {

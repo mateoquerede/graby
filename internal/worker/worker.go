@@ -12,11 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/heygraby/graby/internal/config"
-	"github.com/heygraby/graby/internal/coto"
-	"github.com/heygraby/graby/internal/models"
-	"github.com/heygraby/graby/internal/openrouter"
-	"github.com/heygraby/graby/internal/store"
+	"graby/internal/config"
+	"graby/internal/coto"
+	"graby/internal/guard"
+	"graby/internal/models"
+	"graby/internal/openrouter"
+	"graby/internal/store"
 )
 
 type Worker struct {
@@ -140,10 +141,10 @@ func (w *Worker) plan(ctx context.Context, prompt string, correction bool, previ
 	if len([]rune(prompt)) > 500 {
 		return nil, fmt.Errorf("El pedido supera el límite de 500 caracteres.")
 	}
-	if injection(prompt) {
+	if guard.Injection(prompt) {
 		return nil, fmt.Errorf("El pedido contiene instrucciones no permitidas.")
 	}
-	if !correction && !looksLikeShoppingRequest(prompt) {
+	if !correction && !guard.LooksLikeShoppingRequest(prompt) {
 		return nil, fmt.Errorf("Solo puedo ayudarte a armar un carrito de compras.")
 	}
 	if !correction {
@@ -389,18 +390,6 @@ func queries(items []models.Task) []string {
 	return values
 }
 func jsonString(value any) string { data, _ := json.Marshal(value); return string(data) }
-func injection(value string) bool {
-	return regexp.MustCompile(`(?is)\b(ignore|ignora|olvida|forget|disregard)\b.{0,40}\b(instrucciones?|rules?|reglas?)\b|\b(system|developer|assistant)\s*:|\b(exec|execute|ejecuta|python|powershell|shell|comando)\b`).MatchString(value)
-}
-func looksLikeShoppingRequest(value string) bool {
-	for _, term := range []string{"agua", "alimento", "arroz", "bebida", "bizcocho", "branca", "cafe", "carrito", "carne", "cerveza", "chocolate", "compra", "comprar", "condimento", "desodorante", "detergente", "dulce", "fideos", "galleta", "gaseosa", "fernet", "harina", "higiene", "huevo", "jabon", "jugo", "leche", "limpieza", "manteca", "mayonesa", "pan", "papel", "pasta", "pollo", "producto", "queso", "sal", "shampoo", "supermercado", "vino", "yogur", "yerba"} {
-		if regexp.MustCompile(`(?i)\b` + term + `\b`).MatchString(value) {
-			return true
-		}
-	}
-	quantityWithUnit := regexp.MustCompile(`(?i)\b\d+(?:[.,]\d+)?\s*(?:kg|kgs|kilo(?:s)?|g|gr|gramo(?:s)?|l|lt|lts|litro(?:s)?|ml|unidad(?:es)?|pack|caja(?:s)?|botella(?:s)?)\b`)
-	return quantityWithUnit.MatchString(value) || len(regexp.MustCompile(`\b\d+(?:[.,]\d+)?\b`).FindAllString(value, -1)) >= 2
-}
 func quantityText(value float64) string {
 	if value == math.Trunc(value) {
 		return strconv.Itoa(int(value))

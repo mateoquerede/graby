@@ -1,4 +1,4 @@
-module github.com/heygraby/graby
+module graby
 
 go 1.22
 
