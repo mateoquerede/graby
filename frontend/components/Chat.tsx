@@ -243,26 +243,37 @@ export default function Chat() {
         bottomRef={bottomRef}
         confirmation={
           pendingConfirmation && (
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm">
-              <p className="font-medium text-gray-800">🧠 Esta es la lista que voy a buscar:</p>
-              <ul className="mt-2 list-disc pl-5 text-gray-600">
+            <div className="msg-enter rounded-2xl border border-indigo-100 bg-white/90 p-4 text-sm shadow-sm backdrop-blur-sm dark:border-indigo-500/20 dark:bg-white/5">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🧠</span>
+                <p className="font-semibold text-gray-800 dark:text-gray-100">Esta es la lista que voy a buscar:</p>
+              </div>
+              <ul className="mt-2 grid gap-1.5 text-gray-600 dark:text-gray-300">
                 {pendingConfirmation.items.map((item, index) => (
-                  <li key={`${item.query}-${index}`}>
-                    {item.quantity}x {item.query}
+                  <li
+                    key={`${item.query}-${index}`}
+                    className="flex items-center gap-2 rounded-lg bg-indigo-50/70 px-3 py-2 dark:bg-indigo-500/10"
+                  >
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-500 dark:bg-indigo-300" />
+                    <span className="font-medium">{item.query}</span>
+                    <span className="ml-auto text-xs text-indigo-500 dark:text-indigo-300">x {item.quantity}</span>
                   </li>
                 ))}
               </ul>
-              <p className="mt-3 text-gray-700">¿Está correcta?</p>
+              <p className="mt-3 text-gray-700 dark:text-gray-200">¿Está correcta?</p>
               <div className="mt-3 flex gap-2">
                 <button
                   type="button"
                   onClick={() => confirmList(true)}
                   disabled={busy}
-                  className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
+                  className="rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.02] hover:from-indigo-700 hover:to-violet-700 disabled:opacity-40 disabled:hover:scale-100"
                 >
-                  Sí, buscar productos
+                  Sí, buscar productos ✓
                 </button>
               </div>
+              <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                ¿Algo mal? Escribí la corrección abajo para ajustar la lista.
+              </p>
             </div>
           )
         }
@@ -274,7 +285,7 @@ export default function Chat() {
 
       {(phase === "prompt" || phase === "done" || pendingConfirmation) && (
         <form
-          className="flex gap-2"
+          className="flex items-center gap-2 rounded-2xl border border-white/60 bg-white/90 p-2 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/5"
           onSubmit={(e) => {
             e.preventDefault();
             if (pendingConfirmation) {
@@ -292,7 +303,7 @@ export default function Chat() {
         >
           <input
             ref={inputRef}
-            className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            className="flex-1 bg-transparent px-3 py-2.5 text-sm focus:outline-none"
             placeholder={pendingConfirmation ? "¿Qué querés corregir?" : "¿Qué querés comprar?"}
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -302,9 +313,12 @@ export default function Chat() {
           <button
             type="submit"
             disabled={busy || !input.trim()}
-            className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm transition-colors hover:from-indigo-700 hover:to-violet-700 disabled:opacity-40"
+            aria-label="Enviar mensaje"
           >
-            Enviar
+            <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+              <path d="M3.4 20.4 22 12 3.4 3.6 3.39 10l13 2-13 2z" />
+            </svg>
           </button>
         </form>
       )}

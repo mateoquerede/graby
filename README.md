@@ -20,9 +20,9 @@ Visit [heygraby.com](https://heygraby.com).
 | Layer | Tech |
 |---|---|
 | Frontend | Next.js 14, Tailwind CSS |
-| Backend / API | FastAPI (Python) |
+| Backend / API | Go (`net/http`, SSE and WebSocket) |
 | Persistence / queue | PostgreSQL (`FOR UPDATE SKIP LOCKED`) |
-| Worker | Python, httpx, Coto HTTP APIs, OpenRouter |
+| Worker | Go, Coto HTTP APIs, OpenRouter |
 
 ---
 
@@ -33,6 +33,7 @@ Visit [heygraby.com](https://heygraby.com).
 - Docker & Docker Compose
 - An [OpenRouter](https://openrouter.ai) API key
 - Network access to Coto Digital (the worker discovers the search key automatically)
+- Go 1.22+ when running the API or worker without Docker
 
 ### Start everything
 
@@ -44,30 +45,28 @@ docker compose up --build
 
 This compose setup runs locally with:
 - Frontend: Next.js dev server with live refresh
-- Backend: Uvicorn `--reload`
-- Worker: a separate PostgreSQL-polling process
+- API: a Go HTTP service
+- Worker: a separate Go PostgreSQL-polling process
 
 - Frontend → http://localhost:3000
 - API → http://localhost:8000
-- API docs → http://localhost:8000/docs
 
 ### Run without Docker
 
-**Backend**
+**API**
 
 ```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+go run ./cmd/api
 ```
 
 **Worker** (from repo root)
 
 ```bash
-cd worker
-pip install -r requirements.txt
-python worker.py
+go run ./cmd/worker
 ```
+
+Both commands read the repository `.env` file for local development; deployment
+environment variables take precedence.
 
 **Frontend**
 
@@ -79,13 +78,30 @@ npm run dev
 
 ---
 
+## Go migration
+
+The active runtime is Go. `cmd/api` exposes the existing purchase HTTP
+contract (`POST /api/purchases`, status, confirmation, SSE, WebSocket, and
+`GET /health`); `cmd/worker` claims PostgreSQL jobs with `SKIP LOCKED`.
+
+Implementation packages are deliberately separated by responsibility:
+
+- `internal/models`: typed API, job, event, cart, and task models.
+- `internal/store`: PostgreSQL schema, queue claiming, event persistence, and
+  stale-job recovery.
+- `internal/openrouter`: model fallback and JSON-completion adapter.
+- `internal/integrations/coto`: isolated cookie-based Coto session, authentication, search,
+  delivery-address selection, and cart adapter.
+- `internal/worker`: planning, candidate ranking, cart processing, and worker
+  event publication.
+
 ## Security
 
 - Credentials are accepted only by the backend and are never returned to the frontend,
   sent to OpenRouter, or written to logs. They are kept in the pending job payload
   only so the worker can process it; secure the PostgreSQL instance in production.
 - Each job uses an isolated in-memory HTTP session that is closed after completion.
-- OpenRouter is called only by the worker through `OpenRouterClient`; its API key
+- OpenRouter is called only by the worker through its internal Go adapter; its API key
   comes from `OPENROUTER_API_KEY` and is never exposed to the frontend.
 - OpenRouter receives only the product descriptions — never Coto credentials.
 - Configure `OPENROUTER_MODEL` with a free model first. Add paid model IDs to
@@ -99,11 +115,9 @@ npm run dev
 ```
 graby/
 ├── frontend/          # Next.js chat UI
-├── backend/           # FastAPI — job creation, SSE streaming
-├── worker/            # HTTP worker + centralized external API clients
-│   └── coto/          # CotoClient owns the Coto API session and requests
-├── shopping_copilot/  # Search, planner, evaluator, cart helpers
-├── database.py          # Shared PostgreSQL job store
+├── cmd/api/           # Go HTTP API entry point
+├── cmd/worker/        # Go worker entry point
+├── internal/          # API, typed models, Postgres, Coto and OpenRouter packages
 ├── Procfile             # Heroku web + worker process types
 ├── docker-compose.yml
 └── .env.example
