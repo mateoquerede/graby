@@ -1,0 +1,11 @@
+build:
+  docker:
+    web:
+      dockerfile: Dockerfile
+      target: api
+    worker:
+      dockerfile: Dockerfile
+      target: worker
+run:
+  web: /graby-api
+  worker: /graby-worker
