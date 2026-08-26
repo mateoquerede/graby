@@ -20,7 +20,7 @@ export default function Home() {
             <p className="text-[10px] text-gray-500 dark:text-gray-400">tu copiloto de compras</p>
           </div>
           <span className="ml-1 rounded-full bg-gradient-to-r from-indigo-100 to-fuchsia-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-200 dark:from-indigo-500/20 dark:to-fuchsia-500/20 dark:text-indigo-300 dark:ring-indigo-400/30">
-            beta
+            alpha
           </span>
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
