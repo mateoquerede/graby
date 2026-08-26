@@ -47,7 +47,7 @@ export default function Home() {
       </div>
       <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
       <footer className="mt-2 text-center text-[10px] text-gray-400 dark:text-gray-500">
-        Graby v{process.env.NEXT_PUBLIC_APP_VERSION} · beta
+        Graby v{process.env.NEXT_PUBLIC_APP_VERSION} · alpha
       </footer>
     </main>
   );

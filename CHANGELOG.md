@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Version counter (`/version` endpoint, frontend footer, `VERSION` file).
 
-## [0.1.0-beta] - 2026-08-26
+## [0.1.0-alpha] - 2026-08-26
 
 ### Added
 - Go backend migration (replaces the previous Python backend).
