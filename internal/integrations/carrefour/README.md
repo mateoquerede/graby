@@ -1,8 +1,10 @@
 # Carrefour integration (VTEX)
 
-Status: **PLANNED** — no code yet. This doc is the analysis of how to build the
-integration. It was written from real network captures of `carrefour.com.ar`
-taken manually in a browser (search page + `addToCart` GraphQL mutation).
+Status: **IMPLEMENTED** — `client.go` mirrors the `coto.Client` interface and is
+driven by the worker via `GRABY_PROVIDER=carrefour`. This doc is the analysis
+of how the integration works, written from real network captures of
+`carrefour.com.ar` taken manually in a browser (search page + `addToCart`
+GraphQL mutation).
 
 Carrefour Argentina runs on **VTEX** (IO + Checkout). That means a very
 different session, search and cart model than the Coto ATG/Oracle integration

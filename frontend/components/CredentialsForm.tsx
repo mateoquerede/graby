@@ -1,18 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-interface Props {
-  onSubmit: (email: string, password: string) => void;
+export interface Provider {
+  id: string;
+  label: string;
 }
 
-export default function CredentialsForm({ onSubmit }: Props) {
+interface Props {
+  providers: Provider[];
+  onSubmit: (email: string, password: string, provider: string) => void;
+}
+
+export default function CredentialsForm({ providers, onSubmit }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [provider, setProvider] = useState<string>("coto");
+
+  // Default to the first provider (Coto) once the list loads.
+  useEffect(() => {
+    if (providers.length > 0 && !providers.some((p) => p.id === provider)) {
+      setProvider(providers[0].id);
+    }
+  }, [providers, provider]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (email.trim() && password) onSubmit(email.trim(), password);
+    if (email.trim() && password) onSubmit(email.trim(), password, provider);
   }
 
   return (
@@ -26,6 +40,33 @@ export default function CredentialsForm({ onSubmit }: Props) {
           compras. <span className="text-gray-400 dark:text-gray-500">No las guardamos.</span>
         </p>
       </div>
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+          Supermercado
+        </legend>
+        <div className="flex gap-2">
+          {providers.map((p) => (
+            <label
+              key={p.id}
+              className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
+                provider === p.id
+                  ? "border-indigo-400 bg-indigo-50 text-indigo-700 dark:border-indigo-500/50 dark:bg-indigo-500/10 dark:text-indigo-300"
+                  : "border-gray-200 bg-gray-50/60 text-gray-600 hover:border-gray-300 dark:border-white/10 dark:bg-white/5 dark:text-gray-300"
+              }`}
+            >
+              <input
+                type="radio"
+                name="provider"
+                value={p.id}
+                checked={provider === p.id}
+                onChange={() => setProvider(p.id)}
+                className="h-4 w-4 accent-indigo-600"
+              />
+              {p.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/60 px-3 focus-within:ring-2 focus-within:ring-indigo-400 dark:border-white/10 dark:bg-white/5">
         <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0 text-gray-400" stroke="currentColor" strokeWidth="2">
           <path d="M3 8l7.9 5.3a2 2 0 0 0 2.2 0L21 8M5 19h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2Z" strokeLinecap="round" strokeLinejoin="round" />

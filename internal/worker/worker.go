@@ -13,12 +13,39 @@ import (
 	"time"
 
 	"graby/internal/config"
-	"graby/internal/integrations/coto"
 	"graby/internal/guard"
+	"graby/internal/integrations/carrefour"
+	"graby/internal/integrations/coto"
 	"graby/internal/models"
 	"graby/internal/openrouter"
 	"graby/internal/store"
 )
+
+// client is the integration surface the worker drives. Both coto and carrefour
+// implement it, so the pipeline is provider-agnostic.
+type client interface {
+	SetDebug(bool)
+	Bootstrap(ctx context.Context) error
+	Login(ctx context.Context, email, password string) error
+	EnsureDeliveryAddress(ctx context.Context) error
+	Search(ctx context.Context, query string) (map[string]any, error)
+	AddItem(ctx context.Context, productID, skuID string, quantity float64) error
+	SelectDelivery(ctx context.Context) error
+	CartURL() string
+	OrderFormID() string
+}
+
+func newClient(cfg config.Config, provider string) client {
+	if provider == "" {
+		provider = cfg.Provider
+	}
+	switch provider {
+	case "carrefour":
+		return carrefour.New()
+	default:
+		return coto.New(cfg.CotoSearchKey)
+	}
+}
 
 type Worker struct {
 	repo *store.Repository
@@ -86,18 +113,21 @@ func (w *Worker) process(ctx context.Context, job *models.Job) {
 		return
 	}
 
-	client := coto.New(w.cfg.CotoSearchKey)
+	client := newClient(w.cfg, job.Payload.Provider)
 	client.SetDebug(w.cfg.Debug)
-	if err := client.Bootstrap(ctx); err != nil {
-		publish(models.StatusFailed, safeExternalError(err), nil)
-		return
-	}
 	publish("AUTHENTICATING", "Iniciando sesión...", nil)
 	if err := client.Login(ctx, job.Payload.Email, job.Payload.Password); err != nil {
 		publish(models.StatusFailed, "No pude iniciar sesión. Verificá tus credenciales e intentá nuevamente.", nil)
 		return
 	}
 	publish("AUTHENTICATED", "Sesión iniciada correctamente.", nil)
+	// Bootstrap after login so the orderForm is created with the authenticated
+	// session and stays associated with the user's account. Otherwise the cart
+	// is anonymous and the browser can't load it after the user logs in.
+	if err := client.Bootstrap(ctx); err != nil {
+		publish(models.StatusFailed, safeExternalError(err), nil)
+		return
+	}
 	if err := client.EnsureDeliveryAddress(ctx); err != nil {
 		publish(models.StatusFailed, safeExternalError(err), nil)
 		return
@@ -124,6 +154,13 @@ func (w *Worker) process(ctx context.Context, job *models.Job) {
 		selected = append(selected, product)
 		publish("PRODUCT_ADDED", fmt.Sprintf("Encontré una buena coincidencia y la sumé al carrito: %sx %s.", quantityText(task.Quantity), product.Name), map[string]any{"product": product})
 	}
+	// Select a delivery method now that the cart has items. For Carrefour this
+	// picks a delivery SLA so the checkout doesn't block on "seleccioná tu
+	// método de entrega" and redirect to the home page (losing the cart).
+	if err := client.SelectDelivery(ctx); err != nil {
+		publish(models.StatusFailed, safeExternalError(err), nil)
+		return
+	}
 	publish("REVIEWING_CART", "Revisando los productos seleccionados...", nil)
 	total := 0.0
 	for _, product := range selected {
@@ -131,7 +168,11 @@ func (w *Worker) process(ctx context.Context, job *models.Job) {
 	}
 	publish("CALCULATING_TOTAL", "Calculando el total estimado...", nil)
 	publish("PREPARING_CART", "Preparando tu carrito...", nil)
-	publish(models.StatusCompleted, "Listo. Preparé tu carrito. Revisá los productos y completá el pago.", map[string]any{"items": selected, "total": total, "checkout_url": client.CartURL()})
+	extra := map[string]any{"items": selected, "total": total, "checkout_url": client.CartURL()}
+	if id := client.OrderFormID(); id != "" {
+		extra["order_form_id"] = id
+	}
+	publish(models.StatusCompleted, "Listo. Preparé tu carrito. Revisá los productos y completá el pago.", extra)
 }
 
 func (w *Worker) plan(ctx context.Context, prompt string, correction bool, previous []models.Task) ([]models.Task, error) {

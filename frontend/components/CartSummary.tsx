@@ -84,7 +84,7 @@ export default function CartSummary({ items, total, checkoutUrl }: Props) {
           href={checkoutUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-3 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.01] hover:from-indigo-700 hover:to-violet-700"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-3 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.01] hover:from-indigo-700 hover:to-violet-700"
         >
           Continuar con la compra
           <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">

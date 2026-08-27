@@ -18,6 +18,7 @@ type Config struct {
 	OpenRouterBaseURL string
 	OpenRouterTimeout time.Duration
 	CotoSearchKey     string
+	Provider          string
 	Debug             bool
 }
 
@@ -54,6 +55,7 @@ func Load() Config {
 		OpenRouterBaseURL: strings.TrimRight(base, "/"),
 		OpenRouterTimeout: time.Duration(timeout) * time.Second,
 		CotoSearchKey:     os.Getenv("COTO_SEARCH_API_KEY"),
+		Provider:          env("GRABY_PROVIDER", "coto"),
 		Debug:             truthy(os.Getenv("GRABY_DEBUG")),
 	}
 }

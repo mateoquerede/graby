@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"graby/internal/integrations"
 	"graby/internal/models"
 	"graby/internal/store"
 
@@ -42,6 +43,10 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/version" && r.Method == http.MethodGet {
 		writeJSON(w, http.StatusOK, map[string]string{"version": s.version})
+		return
+	}
+	if r.URL.Path == "/api/providers" && r.Method == http.MethodGet {
+		s.providers(w, r)
 		return
 	}
 	const prefix = "/api/purchases"
@@ -85,11 +90,18 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := uuid.NewString()
-	if err := s.repo.Create(r.Context(), id, models.JobPayload{Email: body.Email, Password: body.Password, Message: body.Message}); err != nil {
+	if err := s.repo.Create(r.Context(), id, models.JobPayload{Email: body.Email, Password: body.Password, Message: body.Message, Provider: body.Provider}); err != nil {
 		serverError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]string{"job_id": id, "status": models.StatusPending})
+}
+
+// providers serves the list of supported supermarkets, embedded from
+// internal/integrations/providers.json.
+func (s *Server) providers(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(integrations.ProvidersJSON)
 }
 
 func (s *Server) status(w http.ResponseWriter, r *http.Request, id string) {

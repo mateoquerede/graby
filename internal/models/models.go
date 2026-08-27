@@ -18,6 +18,7 @@ type PurchaseRequest struct {
 	Message  string `json:"message"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	Provider string `json:"provider"`
 }
 
 type ConfirmationRequest struct {
@@ -35,6 +36,7 @@ type JobPayload struct {
 	Email          string `json:"email"`
 	Password       string `json:"password"`
 	Message        string `json:"message"`
+	Provider       string `json:"provider,omitempty"`
 	ConfirmedTasks []Task `json:"confirmed_tasks,omitempty"`
 	PreviousTasks  []Task `json:"previous_tasks,omitempty"`
 	CorrectionMode bool   `json:"correction_mode,omitempty"`

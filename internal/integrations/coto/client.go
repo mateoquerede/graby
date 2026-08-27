@@ -204,6 +204,14 @@ func (c *Client) AddItem(ctx context.Context, productID, skuID string, quantity 
 
 func (c *Client) CartURL() string { return c.base + "/sitios/cdigi/carrito" }
 
+// SelectDelivery is a no-op for Coto: ATG selects the delivery method as part
+// of the checkout flow, so there's nothing to pre-select here.
+func (c *Client) SelectDelivery(ctx context.Context) error { return nil }
+
+// OrderFormID is a no-op for Coto (it has no VTEX orderForm); the worker only
+// uses it to bind the browser cart cookie for VTEX-based providers.
+func (c *Client) OrderFormID() string { return "" }
+
 func (c *Client) actor(ctx context.Context, method, path string, form url.Values) ([]byte, error) {
 	return c.actorWithParams(ctx, method, path, nil, form)
 }

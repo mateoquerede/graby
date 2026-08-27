@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import CredentialsForm from "./CredentialsForm";
+import CredentialsForm, { Provider } from "./CredentialsForm";
 import ChatMessageList from "./ChatMessageList";
 import { ChatMessage, Phase, ProposedItem } from "./Chat.types";
 
@@ -28,7 +28,8 @@ const STATUS_PRESENTATION: Record<string, { label?: string; icon: string }> = {
 
 export default function Chat() {
   const [phase, setPhase] = useState<Phase>("credentials");
-  const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [credentials, setCredentials] = useState<{ email: string; password: string; provider: string } | null>(null);
+  const [providers, setProviders] = useState<Provider[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
@@ -50,12 +51,19 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    fetch(`${API_URL}/api/providers`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setProviders)
+      .catch(() => setProviders([]));
+  }, []);
+
   function pushMsg(msg: ChatMessage) {
     setMessages((prev) => [...prev, msg]);
   }
 
-  function handleCredentials(email: string, password: string) {
-    setCredentials({ email, password });
+  function handleCredentials(email: string, password: string, provider: string) {
+    setCredentials({ email, password, provider });
     setPhase("prompt");
     pushMsg({ role: "assistant", text: "Perfecto. ¿Qué querés comprar hoy?" });
   }
@@ -78,6 +86,7 @@ export default function Chat() {
           message: text,
           email: credentials.email,
           password: credentials.password,
+          provider: credentials.provider,
         }),
       });
 
@@ -280,7 +289,7 @@ export default function Chat() {
       />
 
       {phase === "credentials" && (
-        <CredentialsForm onSubmit={handleCredentials} />
+        <CredentialsForm providers={providers} onSubmit={handleCredentials} />
       )}
 
       {(phase === "prompt" || phase === "done" || pendingConfirmation) && (
