@@ -1,12 +1,27 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Chat from "@/components/Chat";
 import InfoModal from "@/components/InfoModal";
 import BotAvatar from "@/components/BotAvatar";
+import Preloader from "@/components/Preloader";
 import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Home() {
   const [infoOpen, setInfoOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 1200);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (loading) {
+    return (
+      <main className="flex h-screen flex-col items-center justify-center bg-white p-4 dark:bg-[#0b1020]">
+        <Preloader label="Cargando Graby…" size="xl" />
+      </main>
+    );
+  }
 
   return (
     <main className="flex h-screen flex-col items-center justify-center p-4">

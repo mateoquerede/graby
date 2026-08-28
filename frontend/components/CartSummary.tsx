@@ -1,4 +1,5 @@
 import { CartItem } from "./Chat.types";
+import AnimatedNumber from "./AnimatedNumber";
 
 interface Props {
   items: CartItem[];
@@ -35,7 +36,7 @@ function formatPrice(n?: number): string {
 
 export default function CartSummary({ items, total, checkoutUrl }: Props) {
   return (
-    <div className="msg-enter overflow-hidden rounded-2xl border border-white/70 bg-white shadow-lg shadow-indigo-500/10 dark:border-white/10 dark:bg-white/5">
+    <div className="summary-enter overflow-hidden rounded-2xl border border-white/70 bg-white shadow-lg shadow-indigo-500/10 dark:border-white/10 dark:bg-white/5">
       {/* Header con gradiente */}
       <div className="flex items-center gap-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 text-white">
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/25 text-lg">🛒</span>
@@ -48,7 +49,11 @@ export default function CartSummary({ items, total, checkoutUrl }: Props) {
       {items.length > 0 && (
         <ul className="flex flex-col gap-2 p-4">
           {items.map((item, i) => (
-            <li key={i} className="flex flex-col gap-0.5 rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 transition-colors hover:bg-gray-50 dark:border-white/5 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]">
+            <li
+              key={i}
+              className="item-enter flex flex-col gap-0.5 rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 transition-colors hover:bg-gray-50 dark:border-white/5 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
+              style={{ animationDelay: `${i * 60}ms` }}
+            >
               <div className="flex items-center gap-2 text-sm font-medium text-gray-800 dark:text-gray-100">
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-base shadow-sm dark:bg-white/10">
                   {getEmoji(item.name)}
@@ -60,7 +65,7 @@ export default function CartSummary({ items, total, checkoutUrl }: Props) {
                 </span>
                 {item.price && (
                   <span className="ml-auto font-semibold text-gray-700 dark:text-gray-200">
-                    {formatPrice(item.price * item.quantity)}
+                    <AnimatedNumber value={item.price * item.quantity} format={formatPrice} />
                   </span>
                 )}
               </div>
@@ -73,9 +78,11 @@ export default function CartSummary({ items, total, checkoutUrl }: Props) {
       )}
 
       {total > 0 && (
-        <div className="mx-4 flex justify-between rounded-xl bg-gradient-to-r from-indigo-50 to-fuchsia-50 px-4 py-3 text-sm font-bold text-gray-900 ring-1 ring-indigo-100 dark:from-indigo-500/10 dark:to-fuchsia-500/10 dark:text-gray-100 dark:ring-indigo-400/20">
+        <div className="price-flash mx-4 flex justify-between rounded-xl bg-gradient-to-r from-indigo-50 to-fuchsia-50 px-4 py-3 text-sm font-bold text-gray-900 ring-1 ring-indigo-100 dark:from-indigo-500/10 dark:to-fuchsia-500/10 dark:text-gray-100 dark:ring-indigo-400/20">
           <span>Total estimado</span>
-          <span className="text-indigo-700 dark:text-indigo-300">{formatPrice(total)}</span>
+          <span className="text-indigo-700 dark:text-indigo-300">
+            <AnimatedNumber value={total} format={formatPrice} duration={800} />
+          </span>
         </div>
       )}
 

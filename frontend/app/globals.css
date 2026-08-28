@@ -48,6 +48,44 @@ body {
   background: rgba(99, 102, 241, 0.7);
 }
 
+/* Respiración del avatar */
+@keyframes graby-breathe {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+/* Preloader: flotación espacial del avatar */
+@keyframes graby-float {
+  0%, 100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  25% {
+    transform: translateY(-14px) rotate(2deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(-1deg);
+  }
+  75% {
+    transform: translateY(-18px) rotate(3deg);
+  }
+}
+
+/* Preloader: halo pulsante */
+@keyframes graby-pulse-ring {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+
 /* Dots de "escribiendo" */
 @keyframes graby-typing {
   0%, 60%, 100% {
@@ -82,4 +120,119 @@ body {
 }
 .msg-enter {
   animation: graby-fade-in 0.25s ease-out;
+}
+
+/* ===== Motion design sutil ===== */
+
+/* Transición entre pantallas (fases) */
+@keyframes graby-screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.screen-enter {
+  animation: graby-screen-in 0.3s ease-out;
+}
+
+/* Productos entrando al carrito (stagger) */
+@keyframes graby-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.item-enter {
+  animation: graby-item-in 0.3s ease-out both;
+}
+
+/* Confirmación de compra: entrada del resumen */
+@keyframes graby-summary-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.97) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.summary-enter {
+  animation: graby-summary-in 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Check que "aparece" al completarse un estado */
+@keyframes graby-check-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.check-pop {
+  animation: graby-check-pop 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Destello sutil cuando cambia un precio */
+@keyframes graby-price-flash {
+  0% {
+    background-color: rgba(99, 102, 241, 0.16);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+.price-flash {
+  animation: graby-price-flash 0.6s ease-out;
+}
+
+/* Barra de progreso del agente (shimmer) */
+@keyframes graby-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+.progress-track {
+  position: relative;
+  overflow: hidden;
+  height: 3px;
+  border-radius: 9999px;
+  background: rgba(99, 102, 241, 0.15);
+}
+.progress-bar {
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.7), transparent);
+  animation: graby-progress 1.4s ease-in-out infinite;
+}
+
+/* Respeta la preferencia de reducir movimiento */
+@media (prefers-reduced-motion: reduce) {
+  .screen-enter,
+  .item-enter,
+  .summary-enter,
+  .check-pop,
+  .price-flash,
+  .progress-bar {
+    animation: none;
+  }
 }

@@ -58,6 +58,15 @@ export default function InfoModal({ open, onClose }: Props) {
         </div>
 
         <div className="space-y-5 px-6 py-5 text-sm leading-6 text-gray-600 dark:text-gray-300">
+          <div className="rounded-xl bg-gradient-to-r from-indigo-50 to-fuchsia-50 px-4 py-3 text-center dark:from-indigo-500/10 dark:to-fuchsia-500/10">
+            <p className="text-base font-semibold text-gray-800 dark:text-gray-100">
+              Decile qué necesitás.{" "}
+              <span className="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent dark:from-indigo-400 dark:via-violet-400 dark:to-fuchsia-400">
+                Graby busca, compara y arma tu compra.
+              </span>
+            </p>
+          </div>
+
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">1. Contale qué necesitás</h3>
             <p>
@@ -69,10 +78,18 @@ export default function InfoModal({ open, onClose }: Props) {
           </div>
 
           <div>
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">2. Revisá el resultado</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">2. Graby busca y compara</h3>
             <p>
-              Graby busca los productos y arma el carrito en la tienda. Al finalizar vas a poder
-              revisar el carrito y completar el pago directamente en la tienda.
+              Busca cada producto, compara opciones y arma la lista. Te la muestra para que la
+              confirmes o la corrijas antes de seguir.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">3. Revisá y pagá en la tienda</h3>
+            <p>
+              Graby deja el carrito listo en tu supermercado. Al finalizar vas a poder revisar el
+              carrito y completar el pago directamente en la tienda.
             </p>
           </div>
 

@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import CredentialsForm, { Provider } from "./CredentialsForm";
 import ChatMessageList from "./ChatMessageList";
+import Preloader from "./Preloader";
+import Landing from "./Landing";
+import BotAvatar from "./BotAvatar";
 import { ChatMessage, Phase, ProposedItem } from "./Chat.types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -30,12 +33,7 @@ export default function Chat() {
   const [phase, setPhase] = useState<Phase>("credentials");
   const [credentials, setCredentials] = useState<{ email: string; password: string; provider: string } | null>(null);
   const [providers, setProviders] = useState<Provider[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: "assistant",
-      text: "Hola 👋 Para comenzar necesito acceder a tu cuenta para hacer las compras.",
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -248,7 +246,6 @@ export default function Chat() {
     <div className="flex flex-col flex-1 overflow-hidden pt-4 gap-4">
       <ChatMessageList
         messages={messages}
-        busy={busy}
         bottomRef={bottomRef}
         confirmation={
           pendingConfirmation && (
@@ -289,12 +286,27 @@ export default function Chat() {
       />
 
       {phase === "credentials" && (
-        <CredentialsForm providers={providers} onSubmit={handleCredentials} />
+        <div className="screen-enter flex flex-col gap-3">
+          <Landing onExample={(text) => setInput(text)} />
+          <div className="msg-enter flex items-start gap-2.5">
+            <BotAvatar size="sm" />
+            <div className="max-w-[80%] rounded-2xl rounded-bl-sm border border-white/70 bg-white px-4 py-3 text-sm text-gray-700 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-200">
+              Hola 👋 Para comenzar necesito acceder a tu cuenta para hacer las compras.
+            </div>
+          </div>
+          <CredentialsForm providers={providers} onSubmit={handleCredentials} />
+        </div>
+      )}
+
+      {busy && phase === "working" && (
+        <div className="screen-enter flex items-center justify-center py-6">
+          <Preloader label="Graby está trabajando…" />
+        </div>
       )}
 
       {(phase === "prompt" || phase === "done" || pendingConfirmation) && (
         <form
-          className="flex items-center gap-2 rounded-2xl border border-white/60 bg-white/90 p-2 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/5"
+          className="screen-enter flex items-center gap-2 rounded-2xl border border-white/60 bg-white/90 p-2 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/5"
           onSubmit={(e) => {
             e.preventDefault();
             if (pendingConfirmation) {
@@ -312,7 +324,7 @@ export default function Chat() {
         >
           <input
             ref={inputRef}
-            className="flex-1 bg-transparent px-3 py-2.5 text-sm focus:outline-none"
+            className="flex-1 bg-transparent px-3 py-2.5 text-sm text-gray-900 focus:outline-none placeholder:text-gray-400 dark:text-gray-100 dark:placeholder:text-gray-500"
             placeholder={pendingConfirmation ? "¿Qué querés corregir?" : "¿Qué querés comprar?"}
             value={input}
             onChange={(e) => setInput(e.target.value)}

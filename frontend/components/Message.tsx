@@ -19,7 +19,7 @@ export default function Message({ msg }: Props) {
   if (msg.role === "status") {
     return (
       <div className="msg-enter ml-2 flex items-start gap-2 text-sm text-gray-500 dark:text-gray-400">
-        <span className="mt-px flex h-5 w-5 items-center justify-center rounded-full bg-indigo-50 text-[11px] dark:bg-indigo-500/15">
+        <span className="check-pop mt-px flex h-5 w-5 items-center justify-center rounded-full bg-indigo-50 text-[11px] dark:bg-indigo-500/15">
           {msg.icon ?? "🔄"}
         </span>
         <span>{msg.text}</span>
