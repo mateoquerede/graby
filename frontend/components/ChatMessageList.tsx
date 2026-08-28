@@ -7,9 +7,10 @@ interface Props {
   messages: ChatMessage[];
   bottomRef: RefObject<HTMLDivElement>;
   confirmation?: ReactNode;
+  onCheckout?: () => void;
 }
 
-export default function ChatMessageList({ messages, bottomRef, confirmation }: Props) {
+export default function ChatMessageList({ messages, bottomRef, confirmation, onCheckout }: Props) {
   return (
     <div className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1">
       {messages.map((msg, i) => {
@@ -20,6 +21,7 @@ export default function ChatMessageList({ messages, bottomRef, confirmation }: P
               items={msg.items}
               total={msg.total}
               checkoutUrl={msg.checkoutUrl}
+              onCheckout={onCheckout}
             />
           );
         }

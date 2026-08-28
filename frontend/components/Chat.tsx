@@ -6,6 +6,9 @@ import ChatMessageList from "./ChatMessageList";
 import Preloader from "./Preloader";
 import Landing from "./Landing";
 import BotAvatar from "./BotAvatar";
+import DemoBanner from "./demo/DemoBanner";
+import TryDemoButton from "./demo/TryDemoButton";
+import { useDemo, DemoConfirmation } from "./demo/useDemo";
 import { ChatMessage, Phase, ProposedItem } from "./Chat.types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -39,11 +42,16 @@ export default function Chat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const confirmationShownRef = useRef(false);
   const confirmationAcceptedRef = useRef(false);
-  const [pendingConfirmation, setPendingConfirmation] = useState<{
-    jobId: string;
-    items: ProposedItem[];
-  } | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] = useState<DemoConfirmation | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const { demo, startDemo, runDemoFlow, confirmDemo, exitDemo, demoMessage } = useDemo({
+    pushMsg,
+    clearMessages,
+    setPhase,
+    setBusy,
+    setPendingConfirmation,
+  });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -60,6 +68,10 @@ export default function Chat() {
     setMessages((prev) => [...prev, msg]);
   }
 
+  function clearMessages() {
+    setMessages([]);
+  }
+
   function handleCredentials(email: string, password: string, provider: string) {
     setCredentials({ email, password, provider });
     setPhase("prompt");
@@ -67,13 +79,20 @@ export default function Chat() {
   }
 
   async function handleSend() {
-    const text = input.trim();
-    if (!text || busy || !credentials) return;
+    const text = demo ? demoMessage : input.trim();
+    if (!text || busy) return;
     setInput("");
     setBusy(true);
     confirmationShownRef.current = false;
     confirmationAcceptedRef.current = false;
     pushMsg({ role: "user", text });
+
+    if (demo) {
+      runDemoFlow();
+      return;
+    }
+
+    if (!credentials) return;
 
     let jobId: string;
     try {
@@ -207,6 +226,10 @@ export default function Chat() {
 
   async function confirmList(confirmed: boolean, message?: string) {
     if (!pendingConfirmation || busy) return;
+    if (pendingConfirmation.jobId === "demo") {
+      confirmDemo();
+      return;
+    }
     if (confirmed) {
       confirmationAcceptedRef.current = true;
     } else {
@@ -242,11 +265,21 @@ export default function Chat() {
     }
   }
 
+  const demoReady = demo && phase === "prompt" && !pendingConfirmation;
+
+  function handleExitDemo() {
+    if (window.confirm("¿Salir del modo demo y volver al inicio?")) {
+      exitDemo();
+    }
+  }
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden pt-4 gap-4">
+      {demo && <DemoBanner onExit={handleExitDemo} />}
       <ChatMessageList
         messages={messages}
         bottomRef={bottomRef}
+        onCheckout={demo ? handleExitDemo : undefined}
         confirmation={
           pendingConfirmation && (
             <div className="msg-enter rounded-2xl border border-indigo-100 bg-white/90 p-4 text-sm shadow-sm backdrop-blur-sm dark:border-indigo-500/20 dark:bg-white/5">
@@ -287,6 +320,7 @@ export default function Chat() {
 
       {phase === "credentials" && (
         <div className="screen-enter flex flex-col gap-3">
+          <TryDemoButton onClick={startDemo} />
           <Landing onExample={(text) => setInput(text)} />
           <div className="msg-enter flex items-start gap-2.5">
             <BotAvatar size="sm" />
@@ -326,14 +360,15 @@ export default function Chat() {
             ref={inputRef}
             className="flex-1 bg-transparent px-3 py-2.5 text-sm text-gray-900 focus:outline-none placeholder:text-gray-400 dark:text-gray-100 dark:placeholder:text-gray-500"
             placeholder={pendingConfirmation ? "¿Qué querés corregir?" : "¿Qué querés comprar?"}
-            value={input}
+            value={demo ? demoMessage : input}
             onChange={(e) => setInput(e.target.value)}
-            disabled={busy}
+            disabled={busy || demo}
+            readOnly={demo}
             autoFocus
           />
           <button
             type="submit"
-            disabled={busy || !input.trim()}
+            disabled={busy || (!demo && !input.trim())}
             className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm transition-colors hover:from-indigo-700 hover:to-violet-700 disabled:opacity-40"
             aria-label="Enviar mensaje"
           >

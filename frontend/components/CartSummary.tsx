@@ -5,6 +5,7 @@ interface Props {
   items: CartItem[];
   total: number;
   checkoutUrl: string;
+  onCheckout?: () => void;
 }
 
 const PRODUCT_EMOJI: Record<string, string> = {
@@ -34,12 +35,12 @@ function formatPrice(n?: number): string {
   return `$${n.toLocaleString("es-AR")}`;
 }
 
-export default function CartSummary({ items, total, checkoutUrl }: Props) {
+export default function CartSummary({ items, total, checkoutUrl, onCheckout }: Props) {
   return (
     <div className="summary-enter overflow-hidden rounded-2xl border border-white/70 bg-white shadow-lg shadow-indigo-500/10 dark:border-white/10 dark:bg-white/5">
       {/* Header con gradiente */}
       <div className="flex items-center gap-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 text-white">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/25 text-lg">🛒</span>
+        <span className="cart-wiggle flex h-8 w-8 items-center justify-center rounded-full bg-white/25 text-lg">🛒</span>
         <div>
           <p className="text-sm font-bold">¡Listo! Preparé tu carrito</p>
           <p className="text-xs text-white/85">Revisá los productos y completá el pago en la tienda</p>
@@ -81,25 +82,42 @@ export default function CartSummary({ items, total, checkoutUrl }: Props) {
         <div className="price-flash mx-4 flex justify-between rounded-xl bg-gradient-to-r from-indigo-50 to-fuchsia-50 px-4 py-3 text-sm font-bold text-gray-900 ring-1 ring-indigo-100 dark:from-indigo-500/10 dark:to-fuchsia-500/10 dark:text-gray-100 dark:ring-indigo-400/20">
           <span>Total estimado</span>
           <span className="text-indigo-700 dark:text-indigo-300">
-            <AnimatedNumber value={total} format={formatPrice} duration={800} />
+            <span className="price-value">
+              <AnimatedNumber value={total} format={formatPrice} duration={800} />
+            </span>
           </span>
         </div>
       )}
 
       <div className="p-4 pt-2">
-        <a
-          href={checkoutUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-3 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.01] hover:from-indigo-700 hover:to-violet-700"
-        >
-          Continuar con la compra
-          <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
-            <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </a>
+        {onCheckout ? (
+          <button
+            type="button"
+            onClick={onCheckout}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-3 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.01] hover:from-indigo-700 hover:to-violet-700"
+          >
+            Ir al pago y finalizar la compra
+            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        ) : (
+          <a
+            href={checkoutUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-3 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.01] hover:from-indigo-700 hover:to-violet-700"
+          >
+            Ir al pago y finalizar la compra
+            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </a>
+        )}
         <p className="mt-2 text-center text-xs text-gray-400 dark:text-gray-500">
-          Revisá los productos y completá el pago directamente en el sitio.
+          {onCheckout
+            ? "Esto es una demo: no se realiza ninguna compra."
+            : "Revisá los productos y completá el pago directamente en el sitio."}
         </p>
       </div>
     </div>

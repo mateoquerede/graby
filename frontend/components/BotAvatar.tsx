@@ -19,7 +19,7 @@ const MARGIN = {
 export default function BotAvatar({ size = "md", className = "", animate = true }: Props) {
   return (
     <div
-      className={`relative flex ${SIZES[size]} shrink-0 items-center justify-center rounded-full shadow-lg shadow-indigo-500/30 ring-2 ring-white/70 ${MARGIN[size]} ${className}`}
+      className={`avatar-pop relative flex ${SIZES[size]} shrink-0 items-center justify-center rounded-full shadow-lg shadow-indigo-500/30 ring-2 ring-white/70 ${MARGIN[size]} ${className}`}
     >
       <img
         src="/graby-avatar.png"

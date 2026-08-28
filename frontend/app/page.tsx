@@ -24,19 +24,21 @@ export default function Home() {
   }
 
   return (
-    <main className="flex h-screen flex-col items-center justify-center p-4">
-      <div className="w-full max-w-2xl flex flex-col h-full max-h-[92vh]">
+    <main className="flex h-screen flex-col p-4">
+      <div className="w-full max-w-2xl mx-auto flex flex-col h-full min-h-0">
         <header className="flex items-center gap-3 rounded-2xl bg-white/80 p-3 shadow-sm backdrop-blur-md border border-white/60 dark:border-white/10 dark:bg-white/5">
           <BotAvatar size="md" />
           <div className="leading-tight">
-            <h1 className="text-lg font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent dark:from-indigo-400 dark:via-violet-400 dark:to-fuchsia-400">
-              Graby
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent dark:from-indigo-400 dark:via-violet-400 dark:to-fuchsia-400">
+                Graby
+              </h1>
+              <span className="rounded-full bg-gradient-to-r from-indigo-100 to-fuchsia-100 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-200 dark:from-indigo-500/20 dark:to-fuchsia-500/20 dark:text-indigo-300 dark:ring-indigo-400/30">
+                ALPHA
+              </span>
+            </div>
             <p className="text-[10px] text-gray-500 dark:text-gray-400">tu copiloto de compras</p>
           </div>
-          <span className="ml-1 rounded-full bg-gradient-to-r from-indigo-100 to-fuchsia-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-200 dark:from-indigo-500/20 dark:to-fuchsia-500/20 dark:text-indigo-300 dark:ring-indigo-400/30">
-            {process.env.NEXT_PUBLIC_APP_VERSION}
-          </span>
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
             <button
@@ -62,7 +64,7 @@ export default function Home() {
       </div>
       <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
       <footer className="mt-2 text-center text-[10px] text-gray-400 dark:text-gray-500">
-        Graby v{process.env.NEXT_PUBLIC_APP_VERSION} · alpha
+        Graby v{process.env.NEXT_PUBLIC_APP_VERSION}
       </footer>
     </main>
   );
